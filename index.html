@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Academic Weapon</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <script>
+      (function () {
+        try {
+          var root = document.documentElement;
+          var pref = localStorage.getItem('aw:theme') || 'system';
+          var host = root.getAttribute('data-theme');
+          var sys = host === 'dark' || host === 'light' ? host === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          root.setAttribute('data-appearance', pref === 'dark' || (pref === 'system' && sys) ? 'dark' : 'light');
+          root.setAttribute('data-accent', localStorage.getItem('aw:accent') || 'blue');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

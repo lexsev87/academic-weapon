@@ -1,0 +1,11 @@
+# Dipendenze e build (si ricreano con npm install / npm run desktop)
+node_modules/
+dist/
+desktop/node_modules/
+desktop/out/
+desktop/web/
+Academic Weapon.app/
+*.tgz
+.DS_Store
+dist-web/
+desktop/icon.iconset/

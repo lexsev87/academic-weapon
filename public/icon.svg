@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- plate: deep night with warm firelight from the upper right -->
+    <linearGradient id="bg" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#2B2C78"/>
+      <stop offset="0.55" stop-color="#15163F"/>
+      <stop offset="1" stop-color="#0B0B22"/>
+    </linearGradient>
+    <radialGradient id="firelight" cx="0.78" cy="0.26" r="0.55">
+      <stop offset="0" stop-color="#FF9C3A" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#E0532E" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#E0532E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- dragon: lit from the upper left -->
+    <linearGradient id="skin" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#3DDC97"/>
+      <stop offset="0.45" stop-color="#18A06A"/>
+      <stop offset="1" stop-color="#0B6544"/>
+    </linearGradient>
+    <linearGradient id="skinDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14855A"/>
+      <stop offset="1" stop-color="#095237"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#127A52"/>
+      <stop offset="1" stop-color="#073B28"/>
+    </linearGradient>
+    <linearGradient id="belly" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E9F7C4"/>
+      <stop offset="1" stop-color="#B9DE8E"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF0B8"/>
+      <stop offset="0.45" stop-color="#F6C04A"/>
+      <stop offset="1" stop-color="#B57A16"/>
+    </linearGradient>
+
+    <!-- fire and knowledge -->
+    <linearGradient id="fire" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFF6CF"/>
+      <stop offset="0.3" stop-color="#FFC640"/>
+      <stop offset="0.7" stop-color="#FF7A1E" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#FF4A1A" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="fireCore" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFE9A6" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="bookGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFE29A" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#FFE29A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cover" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B02A40"/>
+      <stop offset="1" stop-color="#5E0F22"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFCF2"/>
+      <stop offset="1" stop-color="#F0E2C0"/>
+    </linearGradient>
+
+    <filter id="glyphGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="7" result="b"/>
+      <feFlood flood-color="#FFA23A" flood-opacity="0.95"/>
+      <feComposite in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="plateShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.32"/>
+    </filter>
+    <clipPath id="plate"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+  </defs>
+
+  <!-- macOS icon grid: 824 pt rounded plate on a 1024 canvas -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#plateShadow)"/>
+
+  <g clip-path="url(#plate)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#firelight)"/>
+    <g fill="#FFFFFF">
+      <circle cx="214" cy="196" r="3.5" opacity="0.55"/>
+      <circle cx="300" cy="140" r="2.5" opacity="0.4"/>
+      <circle cx="170" cy="470" r="2.5" opacity="0.35"/>
+    </g>
+
+    <!-- wing, behind everything -->
+    <g stroke="#06301F" stroke-width="7" stroke-linejoin="round">
+      <path d="M352 612 C318 478 262 330 176 196 C204 300 182 336 126 360 C182 400 176 444 118 484 C178 506 196 548 152 604 C236 606 282 626 324 676 Z" fill="url(#wing)"/>
+    </g>
+    <path d="M352 612 C318 478 262 330 176 196 M318 566 L126 360 M302 600 L118 484 M312 636 L152 604" stroke="#2CB57C" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.75"/>
+
+    <!-- body and neck -->
+    <path d="M420 316 C372 398 338 500 316 612 C290 744 252 846 222 964 L664 964 C620 852 560 764 498 694 C466 612 464 532 494 470 Z" fill="url(#skin)" stroke="#06301F" stroke-width="7" stroke-linejoin="round"/>
+    <!-- belly scales -->
+    <path d="M492 482 C468 548 468 620 500 694 C516 690 528 684 538 676 C512 612 510 548 528 492 Z" fill="url(#belly)" opacity="0.92"/>
+    <g fill="none" stroke="#8DB86A" stroke-width="5" stroke-linecap="round">
+      <path d="M494 522 Q512 530 526 522"/>
+      <path d="M488 566 Q508 576 522 568"/>
+      <path d="M490 612 Q510 622 526 614"/>
+      <path d="M498 656 Q518 666 534 656"/>
+    </g>
+    <!-- back spikes -->
+    <g fill="url(#gold)" stroke="#6E4A0C" stroke-width="4" stroke-linejoin="round">
+      <path d="M402 356 L350 344 L388 392 Z"/>
+      <path d="M380 418 L322 414 L366 458 Z"/>
+      <path d="M362 482 L302 484 L350 524 Z"/>
+      <path d="M346 546 L288 554 L338 588 Z"/>
+    </g>
+
+    <!-- horns -->
+    <g fill="url(#gold)" stroke="#6E4A0C" stroke-width="5" stroke-linejoin="round">
+      <path d="M440 304 C404 244 358 204 292 178 C348 228 372 280 410 338 Z"/>
+      <path d="M482 286 C468 230 440 188 396 150 C428 204 444 250 456 300 Z"/>
+    </g>
+
+    <!-- head -->
+    <path d="M410 328 C426 288 474 270 530 284 C560 292 580 304 604 316 L690 342 C716 350 718 382 694 388 L612 392 L560 404 L672 416 C694 420 694 444 670 450 C612 468 548 482 492 476 C456 472 424 444 412 402 C404 376 402 350 410 328 Z" fill="url(#skin)" stroke="#06301F" stroke-width="7" stroke-linejoin="round"/>
+    <!-- cheek light -->
+    <path d="M446 330 C470 300 520 296 560 312" stroke="#7CF0BE" stroke-width="9" stroke-linecap="round" fill="none" opacity="0.6"/>
+    <!-- mouth -->
+    <path d="M612 392 L560 404 L672 416 Z" fill="#4A0A16"/>
+    <g fill="#FFFBEA">
+      <path d="M624 390 L632 404 L640 388 Z"/>
+      <path d="M654 388 L661 401 L668 387 Z"/>
+      <path d="M610 411 L618 399 L626 413 Z"/>
+      <path d="M640 414 L647 402 L654 415 Z"/>
+    </g>
+    <!-- brow, eye, nostril -->
+    <path d="M498 312 C524 298 562 304 586 322" stroke="#06301F" stroke-width="12" stroke-linecap="round" fill="none"/>
+    <path d="M510 338 C526 320 560 322 572 340 C556 354 526 356 510 338 Z" fill="url(#gold)" stroke="#06301F" stroke-width="4"/>
+    <rect x="537" y="324" width="8" height="28" rx="4" fill="#160800"/>
+    <circle cx="530" cy="333" r="3.5" fill="#FFFFFF" opacity="0.9"/>
+    <path d="M668 350 q11 -5 18 4" stroke="#06301F" stroke-width="7" stroke-linecap="round" fill="none"/>
+
+    <!-- fire breath with a bright core -->
+    <path d="M652 398 C716 382 770 320 818 252 C846 212 880 178 960 134 C972 228 946 320 896 388 C836 460 746 454 664 430 Z" fill="url(#fire)"/>
+    <path d="M664 406 C722 398 764 354 804 302 C828 272 852 242 892 208 C886 274 862 332 824 372 C776 420 718 426 664 420 Z" fill="url(#fireCore)" opacity="0.85"/>
+
+    <!-- formulas breathed out: four, big enough to read at small sizes -->
+    <g fill="#FFF3C9" stroke="#FFB347" stroke-width="2.5" stroke-opacity="0.6" paint-order="stroke" filter="url(#glyphGlow)" font-family="'Times New Roman', Times, serif" font-weight="700">
+      <text x="694" y="236" font-size="118">Σ</text>
+      <text x="852" y="488" font-size="104" font-style="italic">π</text>
+      <text x="748" y="590" font-size="112" font-style="italic">∫</text>
+      <text x="566" y="196" font-size="66" font-style="italic">e<tspan dy="-30" font-size="42">iπ</tspan></text>
+    </g>
+
+    <!-- the book glows: knowledge as the source of the fire -->
+    <ellipse cx="648" cy="770" rx="210" ry="120" fill="url(#bookGlow)" filter="url(#soft)"/>
+    <g transform="rotate(-8 648 776)">
+      <path d="M492 712 L648 730 L804 712 L812 850 L648 868 L484 850 Z" fill="url(#cover)" stroke="#3D0815" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M490 846 L648 864 L806 846" stroke="url(#gold)" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M506 702 C562 694 618 706 648 724 L648 846 C616 830 560 822 508 828 Z" fill="url(#page)"/>
+      <path d="M790 702 C734 694 678 706 648 724 L648 846 C680 830 736 822 788 828 Z" fill="url(#page)"/>
+      <path d="M648 724 L648 846" stroke="#C7AE7C" stroke-width="3"/>
+      <g stroke="#BCA678" stroke-width="5" stroke-linecap="round">
+        <path d="M534 736 L622 744"/>
+        <path d="M534 762 L622 768"/>
+        <path d="M534 788 L604 792"/>
+        <path d="M674 744 L762 736"/>
+        <path d="M674 768 L762 762"/>
+      </g>
+      <text x="680" y="814" font-family="'Times New Roman', Times, serif" font-style="italic" font-size="34" fill="#7A1C30">f(x)</text>
+      <path d="M736 702 L736 760 L748 748 L760 760 L760 700" fill="#D63A50"/>
+    </g>
+
+    <!-- forearms, outlined like the body -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M446 642 C476 702 508 732 552 748" stroke="#06301F" stroke-width="66"/>
+      <path d="M528 866 C610 886 700 872 772 846" stroke="#06301F" stroke-width="62"/>
+      <path d="M446 642 C476 702 508 732 552 748" stroke="url(#skinDark)" stroke-width="54"/>
+      <path d="M528 866 C610 886 700 872 772 846" stroke="url(#skinDark)" stroke-width="50"/>
+      <path d="M452 652 C478 700 506 726 540 740" stroke="#3DDC97" stroke-width="10" opacity="0.55"/>
+    </g>
+    <!-- claws over the book's edges -->
+    <g fill="url(#gold)" stroke="#6E4A0C" stroke-width="4" stroke-linejoin="round">
+      <path d="M546 722 C562 704 584 704 594 718 C578 718 566 726 558 742 Z"/>
+      <path d="M560 752 C580 738 602 742 608 758 C592 756 580 762 570 776 Z"/>
+      <path d="M756 816 C772 800 794 800 802 816 C786 814 776 822 768 838 Z"/>
+      <path d="M724 838 C740 822 762 824 768 838 C752 836 742 844 734 860 Z"/>
+    </g>
+
+    <!-- glass sheen and a light-catching inner edge -->
+    <rect x="100" y="100" width="824" height="824" fill="url(#sheen)"/>
+  </g>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

@@ -1,0 +1,235 @@
+import { useRef, type ReactNode } from 'react';
+import { IconDownload, IconUpload } from '../../components/Icons';
+import { confirmDialog, PageHeader, Seg, Stepper, toast } from '../../components/UI';
+import { GoalFields, ProgramFields, Row, SoundFields, Toggle } from '../../components/Prefs';
+import { chooseFolder, isMacApp, reveal } from '../../lib/native';
+import { runBackup } from '../../lib/backup';
+import { useFeedback } from '../../lib/feedback';
+import { inClaudeViewer, isWeb, requestNotifications, saveFile } from '../../lib/platform';
+import { navigate } from '../../lib/router';
+import { ACCENTS, setAccent, setThemePref, useAccent, useThemePref, type ThemePref } from '../../lib/theme';
+import { getData, replaceData, resetAll, setSettings, update, type UserData } from '../../lib/store';
+import { dayKey } from '../../lib/stats';
+
+export function SettingsPage({ data }: { data: UserData; name: string }) {
+  const s = data.settings;
+  const theme = useThemePref();
+  const accent = useAccent();
+  const file = useRef<HTMLInputElement>(null);
+  const feedback = useFeedback();
+
+  const exportJson = async () => {
+    const r = await saveFile(`academic-weapon-backup-${dayKey(Date.now())}.json`, JSON.stringify(getData(), null, 2), 'application/json');
+    if (r === 'saved') toast(isWeb ? 'Backup salvato' : 'Backup salvato in Download');
+    else if (r === 'unavailable') toast('Il salvataggio di file non è disponibile qui');
+  };
+  const importJson = async (f: File) => {
+    try {
+      const d = JSON.parse(await f.text()) as UserData;
+      if (!Array.isArray(d.sessions) || !d.settings) throw new Error();
+      const ok = await confirmDialog({
+        title: `Importare ${d.sessions.length} sessioni e ${d.subjects?.length ?? 0} esami?`,
+        message: 'I dati attuali verranno sostituiti.',
+        confirmLabel: 'Importa',
+        destructive: true,
+      });
+      if (!ok) return;
+      replaceData(d);
+      toast('Dati importati');
+    } catch {
+      toast('File non valido');
+    }
+  };
+
+  return (
+    <>
+      <PageHeader title="Impostazioni" subtitle={isWeb ? 'I tuoi dati restano in questo browser.' : 'Tutto resta su questo Mac.'} />
+      <div className="settings">
+        <Group title="Profilo">
+          <Row label="Nome">
+            <input className="in inline-field" value={s.name} placeholder="Il tuo nome" onChange={(e) => setSettings({ name: e.target.value })} />
+          </Row>
+        </Group>
+
+        <Group title="Percorso" foot="Crediti, voti e periodi si adattano a qualsiasi percorso: università italiana, estera o un anno su misura.">
+          <div className="row-block">
+            <ProgramFields s={s} set={setSettings} />
+          </div>
+        </Group>
+
+        <Group title="Obiettivi di studio">
+          <div className="row-block">
+            <GoalFields s={s} set={setSettings} />
+          </div>
+          <Row label="La settimana inizia di">
+            <Seg<'1' | '0'>
+              label="Primo giorno della settimana"
+              value={String(s.weekStart) as '1' | '0'}
+              onChange={(v) => setSettings({ weekStart: Number(v) as 0 | 1 })}
+              options={[
+                { id: '1', label: 'Lunedì' },
+                { id: '0', label: 'Domenica' },
+              ]}
+            />
+          </Row>
+        </Group>
+
+        <Group title="Durante lo studio">
+          <Toggle label="Schermo intero all’avvio del timer" hint="Esc per uscire, F per rientrare" checked={s.fullscreenOnStart} onChange={(v) => setSettings({ fullscreenOnStart: v })} />
+          <Toggle
+            label="Scheda di fine sessione"
+            hint="Esame, note e concentrazione; salvandola parte la pausa"
+            checked={s.logAfterSession}
+            onChange={(v) => setSettings({ logAfterSession: v })}
+          />
+          <Toggle label="Riparti automaticamente dopo la pausa" checked={s.autoFocus} onChange={(v) => setSettings({ autoFocus: v })} />
+          <Toggle
+            label="Notifiche"
+            hint="Avvisa anche quando l’app è in secondo piano"
+            checked={s.notify}
+            onChange={async (v) => {
+              if (v && !(await requestNotifications())) {
+                return toast(isWeb ? 'Il browser non consente le notifiche in questa pagina' : 'Abilita le notifiche per Academic Weapon in Impostazioni di Sistema');
+              }
+              setSettings({ notify: v });
+            }}
+          />
+        </Group>
+
+        <Group title="Pomodoro">
+          <Stepper label="Concentrazione" unit="min" value={s.focusMin} min={5} max={180} step={5} onChange={(v) => setSettings({ focusMin: v })} />
+          <Stepper label="Pausa breve" unit="min" value={s.shortMin} min={1} max={60} step={1} onChange={(v) => setSettings({ shortMin: v })} />
+          <Stepper label="Pausa lunga" unit="min" value={s.longMin} min={1} max={90} step={5} onChange={(v) => setSettings({ longMin: v })} />
+          <Stepper label="Pausa lunga ogni" unit="pomodori" value={s.longEvery} min={2} max={12} step={1} onChange={(v) => setSettings({ longEvery: v })} />
+        </Group>
+
+        <Group title="Suoni" foot={isMacApp ? 'Sono i suoni di sistema di macOS.' : 'Nell’app per Mac vengono usati i suoni di sistema di macOS.'}>
+          <SoundFields s={s} set={setSettings} />
+        </Group>
+
+        <Group title="Aspetto">
+          <Row label="Tema">
+            <Seg<ThemePref>
+              label="Tema"
+              value={theme}
+              onChange={setThemePref}
+              options={[
+                { id: 'light', label: 'Chiaro' },
+                { id: 'system', label: 'Automatico' },
+                { id: 'dark', label: 'Scuro' },
+              ]}
+            />
+          </Row>
+          <Row label="Colore di evidenziazione">
+            <div className="swatches" role="radiogroup" aria-label="Colore di evidenziazione">
+              {ACCENTS.map((a) => (
+                <button key={a.id} role="radio" title={a.label} aria-label={a.label} aria-checked={accent === a.id} style={{ background: a.hex }} onClick={() => setAccent(a.id)} />
+              ))}
+            </div>
+          </Row>
+        </Group>
+
+        {isMacApp && (
+          <Group title="Backup automatico" foot="Una copia di tutti i dati ogni settimana; restano gli ultimi 12 backup.">
+            <Toggle label="Backup settimanale" checked={s.autoBackup} onChange={(v) => setSettings({ autoBackup: v })} />
+            <Row label="Cartella" hint={s.backupDir || 'Documenti › Academic Weapon Backup'}>
+              <button className="btn" onClick={() => chooseFolder().then((dir) => dir && setSettings({ backupDir: dir }))}>
+                Cambia…
+              </button>
+              <button className="btn" onClick={() => reveal(s.backupDir)}>
+                Mostra
+              </button>
+            </Row>
+            <Row label="Ultimo backup" hint={s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString('it-IT', { dateStyle: 'medium', timeStyle: 'short' }) : 'mai'}>
+              <button
+                className="btn"
+                onClick={async () => {
+                  const r = await runBackup();
+                  toast(r.ok ? 'Backup salvato' : `Backup non riuscito: ${r.error}`);
+                }}
+              >
+                Esegui ora
+              </button>
+            </Row>
+          </Group>
+        )}
+
+        {isWeb && inClaudeViewer() && (
+          <Group title="Versione beta" foot="Questa è la versione di prova di Academic Weapon: si aggiorna da sola quando esce una novità.">
+            <Row label="Feedback" hint={feedback.available ? 'Un commento su questa pagina, che arriva ad Alessio' : 'Usa i commenti di claude.ai su questa pagina'}>
+              {feedback.available && (
+                <button className="btn" onClick={(e) => feedback.open(e.currentTarget.closest('.group'))}>
+                  Invia feedback
+                </button>
+              )}
+            </Row>
+          </Group>
+        )}
+
+        <Group title="Dati" foot={`${data.sessions.length} sessioni · ${data.subjects.length} esami · ${data.semesters.length} periodi.`}>
+          <Row label="File di backup" hint="Esporta o importa tutti i dati in JSON">
+            <button className="btn" onClick={exportJson}>
+              <IconDownload size={12} /> Esporta
+            </button>
+            <button className="btn" onClick={() => file.current?.click()}>
+              <IconUpload size={12} /> Importa
+            </button>
+            <input ref={file} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])} />
+          </Row>
+          <Row label="Configurazione iniziale" hint="Rifai i passi del primo avvio">
+            <button className="btn" onClick={() => setSettings({ setupDone: false })}>
+              Ripeti
+            </button>
+          </Row>
+        </Group>
+
+        <Group title="Zona pericolosa" foot="Queste azioni non si possono annullare: fai prima un backup.">
+          <Row label="Cancella tutte le sessioni" hint="Esami e periodi restano">
+            <button
+              className="btn destructive"
+              onClick={async () => {
+                if (await confirmDialog({ title: 'Cancellare tutte le sessioni?', message: 'Esami e periodi restano.', confirmLabel: 'Cancella sessioni', destructive: true })) {
+                  update((d) => ({ ...d, sessions: [] }));
+                  toast('Sessioni cancellate');
+                }
+              }}
+            >
+              Cancella sessioni
+            </button>
+          </Row>
+          <Row label="Ricomincia da zero" hint="Cancella esami, periodi, sessioni e impostazioni">
+            <button
+              className="btn destructive"
+              onClick={async () => {
+                if (
+                  await confirmDialog({
+                    title: 'Cancellare tutto?',
+                    message: 'Esami, periodi, sessioni e impostazioni. Non si può annullare: fai prima un backup.',
+                    confirmLabel: 'Cancella tutto',
+                    destructive: true,
+                  })
+                ) {
+                  resetAll();
+                  navigate('/', true);
+                }
+              }}
+            >
+              Cancella tutto
+            </button>
+          </Row>
+        </Group>
+      </div>
+    </>
+  );
+}
+
+/** System Settings–style group: caption above, rows in a rounded list, footnote below. */
+function Group({ title, foot, children }: { title: string; foot?: string; children: ReactNode }) {
+  return (
+    <section className="group">
+      <h2 className="group-title">{title}</h2>
+      <div className="card list">{children}</div>
+      {foot && <p className="group-foot">{foot}</p>}
+    </section>
+  );
+}

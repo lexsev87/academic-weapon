@@ -1,0 +1,14 @@
+{
+  "name": "academic-weapon-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Academic Weapon study tracker for macOS",
+  "main": "main.cjs",
+  "scripts": {
+    "pack": "node pack.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^33.2.1"
+  }
+}

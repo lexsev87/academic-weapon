@@ -1,0 +1,56 @@
+# Academic Weapon
+
+Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); dallo stesso codice escono anche una versione web pubblica e una beta su claude.ai. I dati restano in locale: sul Mac o nel browser di chi usa la versione web.
+
+## Come si compila e si prova
+
+- Node **non** è nel PATH: sta in `~/.craft-node`. Prima di ogni comando: `export PATH="$HOME/.craft-node/bin:$PATH"`.
+- Controllo dei tipi: `npx tsc --noEmit`
+- Anteprima nel browser: config `academic-weapon` in `.claude/launch.json` (Vite su porta 5174). Nel browser i suoni sono sintetizzati e le funzioni native (schermo intero, barra dei menu, backup) non fanno nulla.
+- App per Mac: `npm run desktop` → build Vite + pacchetto Electron in `Academic Weapon.app` (in questa cartella). Prima chiudere l'app aperta: `osascript -e 'quit app "Academic Weapon"'`, poi riaprirla con `open "Academic Weapon.app"`.
+- I dati veri dell'utente stanno nel localStorage dell'app Electron (`~/Library/Application Support/Academic Weapon`), chiave `aw:data`. Nell'anteprima del browser si possono usare dati finti senza toccarli.
+
+## Versione web beta (sincronizzata con l'app Mac)
+
+- Stesso codice, due target: `npm run desktop` (Mac) e `npm run web` (pagina unica in `dist-web/academic-weapon.html`, `VITE_TARGET=web` da `.env.web`). `npm run release` li fa entrambi.
+- Pubblicata come Artifact: https://claude.ai/artifact/832KQJA8oS2jQR7sfFhNCt (capabilities `downloads: true`, `comments: {composer_only: true}`).
+- **Versione pubblica senza login**: https://lexsev87.github.io/academic-weapon/ (repository pubblico `lexsev87/academic-weapon`, GitHub Pages). Il flusso `.github/workflows/pages.yml` la ricostruisce e ripubblica a ogni push su `main`.
+- **Dopo ogni modifica all'app**: `npm run release` (app Mac + pagina claude.ai), ripubblicare `dist-web/academic-weapon.html` sull'Artifact (Artifact tool con `url`, senza `icon` né `capabilities`), poi commit e push su `main` per aggiornare il sito pubblico. Chi ha la pagina aperta riceve l'aggiornamento da solo.
+- I commit sono firmati con l'indirizzo anonimo GitHub (`git config user.email` locale): non usare altre email, il repository è pubblico.
+- Sul web: router in memoria, niente `confirm()`/download diretti (usare `confirmDialog` e `saveFile` di `lib/platform.ts`), storage solo tramite `readStore`/`writeStore`, tema con l'attributo proprio `data-appearance` (il visualizzatore usa `data-theme`), layout da telefono sotto 720 px con tab bar. I dati di ogni beta tester restano nel suo browser; il feedback arriva come commenti sulla pagina.
+
+## Struttura
+
+- `src/lib/store.ts` – modello dati (`UserData`: settings, semesters, subjects, sessions, timer), salvataggio in `localStorage['aw:data']`, `normalize()` migra i salvataggi vecchi. Ogni nuovo campo va aggiunto ai default **e** gestito in `normalize`.
+- `src/lib/stats.ts` – calcoli: totali, obiettivi (`goalFor`, blocchi), libretto (`career`: medie su qualsiasi scala, base di laurea /110 solo per i trentesimi), ritmo per esame (`pacePerDay`).
+- `src/lib/timer.ts` – motore del timer, flusso pomodoro (fine blocco → scheda di fine sessione `pending` → pausa), stato della vista a schermo intero (`setFocusView`).
+- `src/lib/native.ts` – ponte verso macOS (`window.aw`, definito in `desktop/preload.cjs`): suoni di sistema, timer nella barra dei menu, schermo intero, rimbalzo nel Dock, backup.
+- `src/lib/backup.ts` – backup automatico settimanale (solo app Mac).
+- `src/pages/app/` – pagine: `Shell` (finestra, barra laterale, ⌘1–6), `Dashboard` (Oggi), `TimerPage` (Focus), `FocusOverlay` (schermo intero + scheda di fine sessione), `CalendarPage` (giorno/settimana/mese/elenco), `Sessions` (elenco e scheda sessione), `ExamsPage` (periodi ed esami), `StatsPage`, `SettingsPage`, `Setup` (configurazione iniziale a passi).
+- `src/components/Prefs.tsx` – blocchi di impostazioni condivisi da Setup e Impostazioni (percorso, obiettivi, suoni).
+- `src/styles/` – `base.css` (token colore, tema chiaro/scuro, accenti macOS) e `app.css`.
+- `desktop/` – shell Electron: `main.cjs` (finestra, protocollo `app://`, IPC), `preload.cjs`, `pack.mjs`.
+- `src/assets/logo.svg` – logo (drago con libro che sputa formule, griglia icone macOS 824/1024), unica fonte. Da lì: `public/icon.svg` (favicon, copia) e `desktop/icon.icns` (render con `qlmanage -t -s 1024`, PNG per l'iconset con `sips`, poi `iconutil -c icns desktop/icon.iconset`; l'iconset è temporaneo e non sta in Git).
+
+## Decisioni da rispettare
+
+- **Stile Apple, minimal ma colorato**: font di sistema, barra laterale traslucida (vibrancy), liste raggruppate, icone colorate come in Impostazioni di macOS. Tema scuro blu notte, non grigio piatto. Interfaccia tutta in **italiano**.
+- **Niente login, niente gamification** (traguardi, medaglie e badge sono stati tolti apposta).
+- **Percorso flessibile**: tipo di percorso, crediti (CFU/ECTS/nessuno), scala dei voti e nome dei periodi sono configurabili. Non dare per scontata l'università italiana (l'utente fa un anno quantitativo su misura).
+- **Pomodoro 50+10** di default. L'obiettivo giornaliero si conta **in blocchi pausa inclusa** (4 h = 4 blocchi da 50 min), con obiettivi diversi per feriali e weekend.
+- **Flusso di studio**: play → schermo intero → a fine blocco scheda di fine sessione (esame, note, concentrazione 1–5, durata) → poi parte la pausa. Suoni distinti per fine studio e fine pausa (suoni di sistema macOS).
+- **Schermo intero**: usare `setSimpleFullScreen` (istantaneo) nascosto dietro una dissolvenza; **non** lo schermo intero nativo (scorre in un altro Spazio) e **non** animare le dimensioni della finestra o `clip-path` (scatta). Animare solo `opacity`/`transform`.
+- **Electron e zone trascinabili**: le zone `-webkit-app-region: drag` intercettano i clic anche sotto gli overlay. Niente zone trascinabili sopra pulsanti; con l'overlay aperto, la classe `html.focus-open` le disattiva.
+- Prima di dire che qualcosa funziona nell'app per Mac, provarla davvero (anteprima nel browser ≠ finestra Electron).
+
+## Sistema di design (skill apple-design, emil-design-eng, animate)
+
+- Token in `src/styles/base.css`: scala tipografica con tracking e interlinea per dimensione (`--t-*`), spaziature `--s*` in rem, raggi `--r-*`, colori semantici macOS (`--label`, `--label-2/3/4`, `--separator`, `--fill`…), materiali (`--material-bar`, blur) e movimento (`--ease-out`, `--ease-in-out`, `--ease-drawer`, `--d-*`). Usare questi, non valori sciolti.
+- Componenti condivisi in `src/components/UI.tsx`: `PageHeader` (titolo grande; il titolo compatto compare nella toolbar traslucida quando scorre via), `Section`, `Metric`, `Modal` (figli come funzione `(close) => …` per la chiusura animata), `Seg` (cursore che scorre), `Stepper`, toast.
+- Movimento: solo `transform`/`opacity`; curve personalizzate; UI sotto 300 ms; uscite più veloci delle entrate; niente `transition: all`; niente animazioni su navigazione e azioni da tastiera (Esc chiude i modali all'istante); hover solo con `@media (hover: hover) and (pointer: fine)`; feedback alla pressione con `scale(0.97)`; sempre varianti per `prefers-reduced-motion` e `prefers-reduced-transparency`.
+- Attenzione ai nomi di classe generici: `.today` collideva col calendario (ora la Home usa `.today-card`).
+
+## Idee messe da parte
+
+- Piano settimanale che distribuisce i blocchi tra gli esami in base agli appelli.
+- Riepilogo mensile esportabile in PDF.
