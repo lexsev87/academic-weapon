@@ -17,7 +17,7 @@ import { ExamsPage } from './ExamsPage';
 import { StatsPage } from './StatsPage';
 import { SettingsPage } from './SettingsPage';
 import { Setup } from './Setup';
-import logoUrl from '../../assets/logo.svg';
+import logoUrl from '../../assets/logo.png';
 
 export const APP_NAME = 'Academic Weapon';
 

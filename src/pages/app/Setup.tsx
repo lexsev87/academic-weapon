@@ -3,7 +3,7 @@ import { GoalFields, ProgramFields, SoundFields } from '../../components/Prefs';
 import { Seg, Stepper } from '../../components/UI';
 import { navigate } from '../../lib/router';
 import { setSettings, type Settings, type UserData } from '../../lib/store';
-import logoUrl from '../../assets/logo.svg';
+import logoUrl from '../../assets/logo.png';
 
 const PRESETS = [
   { focus: 25, short: 5, long: 15 },

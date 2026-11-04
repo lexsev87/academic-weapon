@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     base: web ? './' : '/',
-    publicDir: web ? false : 'public',
+    publicDir: 'public',
     build: {
       outDir: web ? 'dist-web' : 'dist',
       emptyOutDir: true,

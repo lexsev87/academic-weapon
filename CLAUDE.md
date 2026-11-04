@@ -30,7 +30,7 @@ Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); da
 - `src/components/Prefs.tsx` – blocchi di impostazioni condivisi da Setup e Impostazioni (percorso, obiettivi, suoni).
 - `src/styles/` – `base.css` (token colore, tema chiaro/scuro, accenti macOS) e `app.css`.
 - `desktop/` – shell Electron: `main.cjs` (finestra, protocollo `app://`, IPC), `preload.cjs`, `pack.mjs`.
-- `src/assets/logo.svg` – logo (drago con libro che sputa formule, griglia icone macOS 824/1024), unica fonte. Da lì: `public/icon.svg` (favicon, copia) e `desktop/icon.icns` (render con `qlmanage -t -s 1024`, PNG per l'iconset con `sips`, poi `iconutil -c icns desktop/icon.iconset`; l'iconset è temporaneo e non sta in Git).
+- `design/logo-source.webp` – logo (drago con occhiali che legge un libro e sputa formule, in biblioteca), unica fonte. `./scripts/make-icons.sh` lo ritaglia nella forma arrotondata macOS sulla griglia 824/1024 con ombra e genera `src/assets/logo.png` (256 px, interfaccia), `public/icon.png` (favicon) e `desktop/icon.icns`. Per cambiare logo: sostituire il file sorgente e rilanciare lo script.
 
 ## Decisioni da rispettare
 
