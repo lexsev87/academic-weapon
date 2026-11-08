@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { Columns } from '../../components/Charts';
 import { IconChevron, IconDownload, IconPlus } from '../../components/Icons';
 import { PageHeader, Seg, SubjectSelect, toast } from '../../components/UI';
 import { NO_SUBJECT_COLOR, type Session, type Subject, type UserData } from '../../lib/store';
-import { addDays, dayKey, fmtDur, fmtTime, startOfDay, startOfWeek } from '../../lib/stats';
+import { rangeInsights } from '../../lib/insights';
+import { addDays, dayKey, fmtDur, fmtTime, goalFor, partsByDay, startOfDay, startOfWeek, totalsByDay } from '../../lib/stats';
 import { readStore, writeStore } from '../../lib/platform';
 import { exportCsv, FocusBars, SessionList, SessionModal } from './Sessions';
 
@@ -103,8 +105,64 @@ export function CalendarPage({ data }: { data: UserData; name: string }) {
         <TimeGrid data={data} days={days} sessions={sessions} subjectOf={subjectOf} onEdit={(s) => setEditing({ session: s })} onNew={openNew} />
       )}
 
+      {view !== 'list' && <RangePanel data={{ ...data, sessions }} view={view} cursor={cursor} />}
+
       {editing && <SessionModal data={data} session={editing.session} defaultStart={editing.start} onClose={() => setEditing(null)} />}
     </div>
+  );
+}
+
+/** Insights for the day, week or month on screen, plus its days as stacked columns. */
+function RangePanel({ data, view, cursor }: { data: UserData; view: Exclude<View, 'list'>; cursor: Date }) {
+  const from = view === 'day' ? cursor : view === 'week' ? startOfWeek(cursor, data.settings.weekStart) : new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const to = view === 'day' ? addDays(from, 1) : view === 'week' ? addDays(from, 7) : new Date(from.getFullYear(), from.getMonth() + 1, 1);
+  const r = rangeInsights(data, from, to);
+  const byDay = totalsByDay(data.sessions);
+  const parts = partsByDay(data.sessions, data.subjects);
+  const days: Date[] = [];
+  for (let d = from; d < to; d = addDays(d, 1)) days.push(d);
+  const word = view === 'day' ? 'del giorno' : view === 'week' ? 'della settimana' : 'del mese';
+  const tiles = [
+    { label: 'Studiato', value: fmtDur(r.studied), note: r.goal ? `di ${fmtDur(r.goal)} · ${Math.round((r.studied / r.goal) * 100)}%` : 'nessun obiettivo' },
+    { label: 'Sessioni', value: String(r.sessions), note: r.sessions ? `media ${fmtDur(r.studied / r.sessions)}` : '–' },
+    ...(view === 'day'
+      ? []
+      : [
+          { label: 'Giorni attivi', value: `${r.activeDays}`, note: `su ${r.days} ${r.days === 1 ? 'giorno' : 'giorni'} trascorsi` },
+          { label: 'Obiettivo centrato', value: `${r.goalMet}`, note: r.goalMet === 1 ? 'giorno' : 'giorni' },
+          { label: 'Media', value: fmtDur(r.avgActive), note: `per giorno attivo · ${fmtDur(r.avgAll)} su tutti` },
+        ]),
+    { label: 'Appelli', value: String(r.exams), note: r.exams === 1 ? 'esame in calendario' : 'esami in calendario' },
+  ];
+  return (
+    <section className="section cal-insights" aria-label={`Riepilogo ${word}`}>
+      <div className="section-head">
+        <h2 className="section-title">Riepilogo {word}</h2>
+      </div>
+      <div className="insight-tiles" style={{ ["--n" as string]: tiles.length }}>
+        {tiles.map((t) => (
+          <div className="card insight-tile" key={t.label}>
+            <span className="insight-label">{t.label}</span>
+            <b className="tnum">{t.value}</b>
+            <small>{t.note}</small>
+          </div>
+        ))}
+      </div>
+      {view !== 'day' && (
+        <div className="card pad">
+          <Columns
+            labelEvery={view === 'month' ? 3 : 1}
+            data={days.map((d) => ({
+              label: view === 'month' ? String(d.getDate()) : d.toLocaleDateString('it-IT', { weekday: 'short' }),
+              tip: d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }),
+              sec: byDay.get(dayKey(d)) ?? 0,
+              parts: parts(dayKey(d)),
+              goal: goalFor(data.settings, d),
+            }))}
+          />
+        </div>
+      )}
+    </section>
   );
 }
 

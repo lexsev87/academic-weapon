@@ -11,6 +11,14 @@ export interface Session {
   note: string;
   kind: SessionKind;
   focus: number; // self-rated concentration 1..5, 0 = not rated
+  activityId: string | null; // what kind of work: lettura, esercizi…
+  breakSec: number; // pause inside the session, not counted in `dur`
+}
+/** A kind of study work (Lettura, Esercizi, Ripasso…), the second axis next to the exam. */
+export interface Activity {
+  id: string;
+  name: string;
+  color: string;
 }
 /** A teaching period: semestre, trimestre, term, modulo… named freely. */
 export interface Semester {
@@ -88,6 +96,9 @@ export interface Settings {
   autoBackup: boolean;
   backupDir: string; // '' = Documents/Academic Weapon Backup
   lastBackupAt: number;
+  /** Tracking period (the "anno" the goals refer to). '' = the current academic year. */
+  trackStart: string;
+  trackEnd: string;
 }
 export type TimerMode = 'pomodoro' | 'stopwatch' | 'countdown';
 export type Phase = 'focus' | 'short' | 'long';
@@ -98,6 +109,7 @@ export interface TimerState {
   startedAt: number | null;
   elapsedMs: number;
   subjectId: string | null;
+  activityId: string | null;
   note: string;
   cycle: number;
   countdownMin: number;
@@ -109,6 +121,7 @@ export interface UserData {
   settings: Settings;
   semesters: Semester[];
   subjects: Subject[];
+  activities: Activity[];
   sessions: Session[];
   timer: TimerState;
 }
@@ -147,6 +160,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoBackup: true,
   backupDir: '',
   lastBackupAt: 0,
+  trackStart: '',
+  trackEnd: '',
 };
 
 export const DEFAULT_TIMER: TimerState = {
@@ -156,6 +171,7 @@ export const DEFAULT_TIMER: TimerState = {
   startedAt: null,
   elapsedMs: 0,
   subjectId: null,
+  activityId: null,
   note: '',
   cycle: 0,
   countdownMin: 45,
@@ -184,10 +200,15 @@ export function newSubject(p: Partial<Subject> = {}): Subject {
   };
 }
 
+export const ACTIVITY_COLORS = ['#5856D6', '#34C759', '#FF9500', '#5AC8FA', '#FF2D55', '#A2845E', '#AF52DE', '#FFCC00'];
+const defaultActivities = (): Activity[] =>
+  ['Lettura', 'Esercizi', 'Ripasso', 'Lezione', 'Appunti', 'Simulazione d’esame'].map((name, i) => ({ id: uid(), name, color: ACTIVITY_COLORS[i] }));
+
 const freshData = (): UserData => ({
   settings: { ...DEFAULT_SETTINGS },
   semesters: [],
   subjects: [],
+  activities: defaultActivities(),
   sessions: [],
   timer: { ...DEFAULT_TIMER },
 });
@@ -213,7 +234,8 @@ function normalize(raw: Partial<UserData> | null): UserData {
       end: x.end ?? '',
     })),
     subjects: (raw.subjects ?? []).map((s) => newSubject(s)),
-    sessions: (raw.sessions ?? []).map((x) => ({ ...x, focus: x.focus ?? 0 })),
+    activities: Array.isArray(raw.activities) ? raw.activities : defaultActivities(),
+    sessions: (raw.sessions ?? []).map((x) => ({ ...x, focus: x.focus ?? 0, activityId: x.activityId ?? null, breakSec: x.breakSec ?? 0 })),
     timer: { ...DEFAULT_TIMER, ...raw.timer },
   };
 }
@@ -263,11 +285,29 @@ export function update(fn: (d: UserData) => UserData) {
 
 export const setSettings = (p: Partial<Settings>) => update((d) => ({ ...d, settings: { ...d.settings, ...p } }));
 export const setTimer = (p: Partial<TimerState>) => update((d) => ({ ...d, timer: { ...d.timer, ...p } }));
-export const addSession = (s: Omit<Session, 'id' | 'focus'> & { focus?: number }) =>
-  update((d) => ({ ...d, sessions: [...d.sessions, { focus: 0, ...s, id: uid() }].sort((a, b) => a.start - b.start) }));
+export const addSession = (s: Omit<Session, 'id' | 'focus' | 'activityId' | 'breakSec'> & Partial<Pick<Session, 'focus' | 'activityId' | 'breakSec'>>) =>
+  update((d) => ({ ...d, sessions: [...d.sessions, { focus: 0, activityId: null, breakSec: 0, ...s, id: uid() }].sort((a, b) => a.start - b.start) }));
 export const saveSession = (s: Session) =>
   update((d) => ({ ...d, sessions: d.sessions.map((x) => (x.id === s.id ? s : x)).sort((a, b) => a.start - b.start) }));
 export const deleteSession = (id: string) => update((d) => ({ ...d, sessions: d.sessions.filter((x) => x.id !== id) }));
+export const deleteSessions = (ids: string[]) => {
+  const drop = new Set(ids);
+  update((d) => ({ ...d, sessions: d.sessions.filter((x) => !drop.has(x.id)) }));
+};
+
+export const saveActivity = (a: Activity) =>
+  update((d) => ({
+    ...d,
+    activities: d.activities.some((x) => x.id === a.id) ? d.activities.map((x) => (x.id === a.id ? a : x)) : [...d.activities, a],
+  }));
+/** Removes the activity; its sessions stay, without an activity. */
+export const deleteActivity = (id: string) =>
+  update((d) => ({
+    ...d,
+    activities: d.activities.filter((x) => x.id !== id),
+    sessions: d.sessions.map((s) => (s.activityId === id ? { ...s, activityId: null } : s)),
+    timer: d.timer.activityId === id ? { ...d.timer, activityId: null } : d.timer,
+  }));
 
 export const saveSubject = (s: Subject) =>
   update((d) => ({

@@ -8,7 +8,9 @@ import { useFeedback } from '../../lib/feedback';
 import { inClaudeViewer, isWeb, requestNotifications, saveFile } from '../../lib/platform';
 import { navigate } from '../../lib/router';
 import { ACCENTS, setAccent, setThemePref, useAccent, useThemePref, type ThemePref } from '../../lib/theme';
-import { getData, replaceData, resetAll, setSettings, update, type UserData } from '../../lib/store';
+import { ACTIVITY_COLORS, deleteActivity, getData, replaceData, resetAll, saveActivity, setSettings, uid, update, type Activity, type UserData } from '../../lib/store';
+import { IconPlus, IconTrash } from '../../components/Icons';
+import { trackingPeriod } from '../../lib/insights';
 import { dayKey } from '../../lib/stats';
 
 export function SettingsPage({ data }: { data: UserData; name: string }) {
@@ -72,6 +74,33 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
               ]}
             />
           </Row>
+        </Group>
+
+        <Group
+          title="Periodo di monitoraggio"
+          foot="Gli obiettivi, il ritmo e l’andamento si calcolano su questo periodo. Lascia vuoto per usare l’anno accademico (1 settembre – 31 agosto)."
+        >
+          <Row label="Inizio">
+            <input className="in inline-field" type="date" value={s.trackStart} max={s.trackEnd || undefined} onChange={(e) => setSettings({ trackStart: e.target.value })} />
+          </Row>
+          <Row label="Fine">
+            <input className="in inline-field" type="date" value={s.trackEnd} min={s.trackStart || undefined} onChange={(e) => setSettings({ trackEnd: e.target.value })} />
+          </Row>
+          <Row label="In uso">
+            <span className="row-value tnum">{periodText(data)}</span>
+          </Row>
+        </Group>
+
+        <Group title="Attività" foot="Il tipo di lavoro di ogni sessione: si sceglie nel timer, a fine sessione e quando registri a mano.">
+          {data.activities.map((a) => (
+            <ActivityRow key={a.id} a={a} uses={data.sessions.filter((x) => x.activityId === a.id).length} />
+          ))}
+          <button
+            className="list-add"
+            onClick={() => saveActivity({ id: uid(), name: 'Nuova attività', color: ACTIVITY_COLORS[data.activities.length % ACTIVITY_COLORS.length] })}
+          >
+            <IconPlus size={12} /> Aggiungi attività
+          </button>
         </Group>
 
         <Group title="Durante lo studio">
@@ -224,6 +253,38 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
 }
 
 /** System Settings–style group: caption above, rows in a rounded list, footnote below. */
+const periodText = (data: UserData) => {
+  const { start, end } = trackingPeriod(data.settings);
+  const f = (d: Date) => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${f(start)} – ${f(new Date(end.getTime() - 1))}`;
+};
+
+function ActivityRow({ a, uses }: { a: Activity; uses: number }) {
+  const nextColor = () => saveActivity({ ...a, color: ACTIVITY_COLORS[(ACTIVITY_COLORS.indexOf(a.color) + 1) % ACTIVITY_COLORS.length] });
+  const remove = async () => {
+    if (uses) {
+      const ok = await confirmDialog({
+        title: `Eliminare “${a.name}”?`,
+        message: `${uses} ${uses === 1 ? 'sessione resterà' : 'sessioni resteranno'} senza attività.`,
+        confirmLabel: 'Elimina',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+    deleteActivity(a.id);
+  };
+  return (
+    <div className="row-item activity-row">
+      <button className="swatch" style={{ background: a.color }} onClick={nextColor} aria-label="Cambia colore" title="Cambia colore" />
+      <input className="in" defaultValue={a.name} aria-label="Nome dell’attività" onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== a.name && saveActivity({ ...a, name: e.target.value.trim() })} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+      <span className="row-hint tnum">{uses ? `${uses} ${uses === 1 ? 'sessione' : 'sessioni'}` : ''}</span>
+      <button className="btn icon plain" aria-label={`Elimina ${a.name}`} onClick={remove}>
+        <IconTrash />
+      </button>
+    </div>
+  );
+}
+
 function Group({ title, foot, children }: { title: string; foot?: string; children: ReactNode }) {
   return (
     <section className="group">

@@ -321,3 +321,18 @@ export function ConfirmHost() {
     </Modal>
   );
 }
+
+/* ---------- activity picker ---------- */
+export function ActivitySelect({ data, value, onChange, allowAll }: { data: UserData; value: string; onChange: (v: string) => void; allowAll?: boolean }) {
+  return (
+    <select className="in" value={value} onChange={(e) => onChange(e.target.value)}>
+      {allowAll && <option value="__all">Tutte le attività</option>}
+      <option value="">Nessuna attività</option>
+      {data.activities.map((a) => (
+        <option key={a.id} value={a.id}>
+          {a.name}
+        </option>
+      ))}
+    </select>
+  );
+}

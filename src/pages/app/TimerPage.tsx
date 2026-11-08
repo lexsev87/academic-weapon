@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Ring } from '../../components/Charts';
 import { IconExpand, IconPause, IconPlay, IconReset, IconSkip, IconStop } from '../../components/Icons';
-import { confirmDialog, PageHeader, Section, Seg, Stepper, SubjectSelect, toast } from '../../components/UI';
+import { ActivitySelect, confirmDialog, PageHeader, Section, Seg, Stepper, SubjectSelect, toast } from '../../components/UI';
 import { NO_SUBJECT_COLOR, setSettings, setTimer, type Settings, type TimerMode, type UserData } from '../../lib/store';
 import { blocksDone, fmtBlocks, fmtClock, fmtDur, fmtGoal, goalFor, startOfDay, sumRange } from '../../lib/stats';
 import { requestNotifications } from '../../lib/platform';
@@ -80,6 +80,10 @@ export function TimerPage({ data }: { data: UserData; name: string }) {
           <label className="timer-subject">
             <span className="dot" style={{ background: subject?.color ?? NO_SUBJECT_COLOR }} />
             <SubjectSelect data={data} value={t.subjectId ?? ''} onChange={(v) => setTimer({ subjectId: v || null })} />
+          </label>
+          <label className="timer-subject timer-activity">
+            <span className="dot" style={{ background: data.activities.find((a) => a.id === t.activityId)?.color ?? NO_SUBJECT_COLOR }} />
+            <ActivitySelect data={data} value={t.activityId ?? ''} onChange={(v) => setTimer({ activityId: v || null })} />
           </label>
 
           <Ring pct={pct} size={288} stroke={10} color={isBreak ? 'var(--green)' : 'var(--accent)'}>

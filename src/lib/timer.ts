@@ -97,7 +97,7 @@ function finishFocus(t: TimerState, ms: number, thenBreak: boolean) {
     setTimer({ ...STOPPED, pending });
     setFocusView(true);
   } else {
-    addSession({ subjectId: t.subjectId, start: pending.start, dur: pending.dur, note: t.note.trim(), kind: t.mode });
+    addSession({ subjectId: t.subjectId, activityId: t.activityId, start: pending.start, dur: pending.dur, note: t.note.trim(), kind: t.mode });
     setTimer({ ...STOPPED, note: '' });
     if (thenBreak) startBreak();
   }
@@ -114,11 +114,11 @@ export function finishAndSave() {
 }
 
 /** Saves the session from the end-of-session sheet, then (optionally) starts the break. */
-export function saveLog(p: { subjectId: string | null; dur: number; note: string; focus: number }, withBreak: boolean) {
+export function saveLog(p: { subjectId: string | null; activityId: string | null; dur: number; note: string; focus: number }, withBreak: boolean) {
   const t = getData().timer;
   if (!t.pending) return;
-  addSession({ subjectId: p.subjectId, start: t.pending.start, dur: p.dur, note: p.note.trim(), kind: t.pending.kind, focus: p.focus });
-  setTimer({ pending: null, note: '', subjectId: p.subjectId });
+  addSession({ subjectId: p.subjectId, activityId: p.activityId, start: t.pending.start, dur: p.dur, note: p.note.trim(), kind: t.pending.kind, focus: p.focus });
+  setTimer({ pending: null, note: '', subjectId: p.subjectId, activityId: p.activityId });
   if (withBreak && t.mode === 'pomodoro') startBreak();
   else setFocusView(false);
 }

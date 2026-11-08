@@ -21,12 +21,14 @@ Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); da
 
 ## Struttura
 
-- `src/lib/store.ts` – modello dati (`UserData`: settings, semesters, subjects, sessions, timer), salvataggio in `localStorage['aw:data']`, `normalize()` migra i salvataggi vecchi. Ogni nuovo campo va aggiunto ai default **e** gestito in `normalize`.
+- `src/lib/store.ts` – modello dati (`UserData`: settings, semesters, subjects, activities, sessions, timer; ogni sessione ha esame **e** attività, più `breakSec`), salvataggio in `localStorage['aw:data']`, `normalize()` migra i salvataggi vecchi. Ogni nuovo campo va aggiunto ai default **e** gestito in `normalize`.
 - `src/lib/stats.ts` – calcoli: totali, obiettivi (`goalFor`, blocchi), libretto (`career`: medie su qualsiasi scala, base di laurea /110 solo per i trentesimi), ritmo per esame (`pacePerDay`).
+- `src/lib/insights.ts` – periodo di monitoraggio (`trackingPeriod`: date nelle impostazioni o anno accademico 1 set–31 ago), riepilogo del periodo (obiettivo a oggi e totale, progresso studio vs tempo, ritmo attuale vs necessario), `rangeInsights` per giorno/settimana/mese, `trendSeries` (studiato meno obiettivo, cumulato), `byActivity`, `pivot` (tabelle incrociate), `subjectInsights` (scheda esame).
 - `src/lib/timer.ts` – motore del timer, flusso pomodoro (fine blocco → scheda di fine sessione `pending` → pausa), stato della vista a schermo intero (`setFocusView`).
 - `src/lib/native.ts` – ponte verso macOS (`window.aw`, definito in `desktop/preload.cjs`): suoni di sistema, timer nella barra dei menu, schermo intero, rimbalzo nel Dock, backup.
 - `src/lib/backup.ts` – backup automatico settimanale (solo app Mac).
-- `src/pages/app/` – pagine: `Shell` (finestra, barra laterale, ⌘1–6), `Dashboard` (Oggi), `TimerPage` (Focus), `FocusOverlay` (schermo intero + scheda di fine sessione), `CalendarPage` (giorno/settimana/mese/elenco), `Sessions` (elenco e scheda sessione), `ExamsPage` (periodi ed esami), `StatsPage`, `SettingsPage`, `Setup` (configurazione iniziale a passi).
+- `src/pages/app/` – pagine: `Shell` (finestra, barra laterale, ⌘1–7, nella barra in alto pillola del timer e "+ Sessione"), `Dashboard` (Oggi: obiettivi, ritmo, andamento, distribuzione per esame e attività), `TimerPage` (Focus), `FocusOverlay` (schermo intero + scheda di fine sessione), `SessionsPage` (registrazione a mano + storico con filtri, selezione multipla, tabella/schede), `Sessions` (`SessionForm` con inizio/fine/pausa condiviso, `SessionModal`, elenco, CSV), `CalendarPage` (giorno/settimana/mese/elenco + riepilogo del periodo visibile), `ExamsPage` + `ExamDetail` (scheda di ogni esame), `StatsPage` (Grafici / Tabelle con `PivotTables`), `SettingsPage` (anche attività e periodo di monitoraggio), `Setup`.
+- `src/components/StatLine.tsx` – riga di numeri del periodo sotto i titoli; `Charts.tsx` ha anche `TrendChart`, `Donut`, `GoalBars`.
 - `src/components/Prefs.tsx` – blocchi di impostazioni condivisi da Setup e Impostazioni (percorso, obiettivi, suoni).
 - `src/styles/` – `base.css` (token colore, tema chiaro/scuro, accenti macOS) e `app.css`.
 - `desktop/` – shell Electron: `main.cjs` (finestra, protocollo `app://`, IPC), `preload.cjs`, `pack.mjs`.

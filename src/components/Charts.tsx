@@ -234,3 +234,147 @@ export function Empty({ text, children }: { text: string; children?: ReactNode }
     </div>
   );
 }
+
+/* Cumulative trend: studied minus goal, day by day. Above zero = ahead of plan, below = behind. */
+export function TrendChart({ series, height = 180 }: { series: { date: Date; studied: number; goal: number; delta: number }[]; height?: number }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [ref, W] = useWidth<HTMLDivElement>(600);
+  const uid = useRef(Math.random().toString(36).slice(2, 7)).current;
+  if (series.length < 2) return <Empty text="Servono almeno due giorni di dati" />;
+  const H = height;
+  const padL = 40;
+  const padB = 22;
+  const padT = 10;
+  const lo = Math.min(0, ...series.map((p) => p.delta));
+  const hi = Math.max(0, ...series.map((p) => p.delta));
+  const span = Math.max(3600, hi - lo);
+  const stepH = span <= 6 * 3600 ? 3600 : span <= 30 * 3600 ? 5 * 3600 : span <= 100 * 3600 ? 20 * 3600 : 50 * 3600;
+  const top = Math.ceil(hi / stepH) * stepH || stepH;
+  const bot = Math.floor(lo / stepH) * stepH;
+  const y = (v: number) => padT + (H - padT - padB) * ((top - v) / (top - bot));
+  const x = (i: number) => padL + ((W - padL - 4) * i) / (series.length - 1);
+  const line = series.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.delta).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(series.length - 1)},${y(0)} L${x(0)},${y(0)} Z`;
+  const ticks: number[] = [];
+  for (let v = bot; v <= top; v += stepH) ticks.push(v);
+  const labelEvery = Math.max(1, Math.ceil(series.length / Math.max(3, Math.min(8, Math.floor(W / 80)))));
+  const last = series[series.length - 1];
+  const h = hover === null ? null : series[hover];
+
+  return (
+    <div className="chart" ref={ref} onMouseLeave={() => setHover(null)}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ height: H }}
+        role="img"
+        aria-label={`Andamento: ${last.delta >= 0 ? 'in vantaggio' : 'in ritardo'} di ${fmtDur(Math.abs(last.delta))}`}
+        onMouseMove={(e) => {
+          const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+          const px = ((e.clientX - r.left) / r.width) * W;
+          setHover(Math.max(0, Math.min(series.length - 1, Math.round(((px - padL) / (W - padL - 4)) * (series.length - 1)))));
+        }}
+      >
+        <defs>
+          <clipPath id={`up${uid}`}>
+            <rect x={0} y={0} width={W} height={y(0)} />
+          </clipPath>
+          <clipPath id={`dn${uid}`}>
+            <rect x={0} y={y(0)} width={W} height={H} />
+          </clipPath>
+        </defs>
+        <g className="axis">
+          {ticks.map((t) => (
+            <g key={t}>
+              <line className="grid-l" x1={padL} x2={W} y1={y(t)} y2={y(t)} />
+              <text x={padL - 6} y={y(t) + 4} textAnchor="end">
+                {t > 0 ? '+' : ''}
+                {Math.round(t / 3600)}h
+              </text>
+            </g>
+          ))}
+        </g>
+        <path d={area} fill="var(--green)" fillOpacity={0.16} clipPath={`url(#up${uid})`} />
+        <path d={area} fill="var(--orange)" fillOpacity={0.16} clipPath={`url(#dn${uid})`} />
+        <line x1={padL} x2={W} y1={y(0)} y2={y(0)} stroke="var(--label-3)" strokeWidth={1} />
+        <path d={line} fill="none" stroke="var(--green)" strokeWidth={2} strokeLinejoin="round" clipPath={`url(#up${uid})`} />
+        <path d={line} fill="none" stroke="var(--orange)" strokeWidth={2} strokeLinejoin="round" clipPath={`url(#dn${uid})`} />
+        {series.map((p, i) =>
+          i % labelEvery === 0 ? (
+            <text key={i} x={x(i)} y={H - 6} textAnchor="middle" style={{ fontSize: 11, fill: 'var(--muted)' }}>
+              {p.date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+            </text>
+          ) : null,
+        )}
+        {h && hover !== null && (
+          <g>
+            <line x1={x(hover)} x2={x(hover)} y1={padT} y2={H - padB} stroke="var(--separator-strong)" />
+            <circle cx={x(hover)} cy={y(h.delta)} r={4} fill={h.delta >= 0 ? 'var(--green)' : 'var(--orange)'} stroke="var(--bg)" strokeWidth={2} />
+          </g>
+        )}
+      </svg>
+      {h && hover !== null && (
+        <div className="tip" style={{ left: `${(x(hover) / W) * 100}%`, top: y(h.delta) }}>
+          <b>
+            {h.delta >= 0 ? '+' : '−'}
+            {fmtDur(Math.abs(h.delta))}
+          </b>{' '}
+          · {fmtDur(h.studied)} di {fmtDur(h.goal)} · {h.date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Donut with the total in the middle; segments in the rows' own colours. */
+export function Donut({ rows, size = 150, stroke = 22, label }: { rows: { id: string | null; name: string; color: string; sec: number }[]; size?: number; stroke?: number; label?: string }) {
+  const total = rows.reduce((a, r) => a + r.sec, 0);
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const gap = rows.length > 1 ? 2 : 0;
+  let acc = 0;
+  return (
+    <div className="ring-wrap" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }} role="img" aria-label={rows.map((x) => `${x.name} ${fmtDur(x.sec)}`).join(', ')}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
+        {total > 0 &&
+          rows.map((x) => {
+            const len = (x.sec / total) * c;
+            const el = (
+              <circle key={String(x.id)} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={x.color} strokeWidth={stroke} strokeDasharray={`${Math.max(0, len - gap)} ${c}`} strokeDashoffset={-acc}>
+                <title>{`${x.name}: ${fmtDur(x.sec)}`}</title>
+              </circle>
+            );
+            acc += len;
+            return el;
+          })}
+      </svg>
+      <div className="center">
+        <span className="donut-value tnum">{fmtDur(total, true)}</span>
+        {label && <span className="donut-label">{label}</span>}
+      </div>
+    </div>
+  );
+}
+
+/* Paired horizontal bars: goal (track) vs studied (fill), one row each. */
+export function GoalBars({ rows }: { rows: { id: string; name: string; color: string; sec: number; goal: number }[] }) {
+  if (!rows.length) return <Empty text="Nessun esame con un obiettivo di ore" />;
+  const max = Math.max(1, ...rows.map((r) => Math.max(r.sec, r.goal)));
+  return (
+    <div>
+      {rows.map((r) => (
+        <div className="hbar goal-bar" key={r.id} title={`${r.name}: ${fmtDur(r.sec)} di ${fmtDur(r.goal)}`}>
+          <span className="nm">
+            <span className="dot" style={{ background: r.color }} />
+            {r.name}
+          </span>
+          <span className="tr">
+            <b style={{ width: `${(r.goal / max) * 100}%`, borderColor: r.color }} />
+            <i style={{ width: `${(r.sec / max) * 100}%`, background: r.color }} />
+          </span>
+          <span className="v tnum">{r.goal ? `${Math.round((r.sec / r.goal) * 100)}%` : fmtDur(r.sec)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}

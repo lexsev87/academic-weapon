@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { IconCalendar, IconCap, IconCheck, IconChevron, IconEdit, IconPlus, IconTimer, IconTrash } from '../../components/Icons';
+import { GoalBars } from '../../components/Charts';
 import { confirmDialog, Metric, Modal, PageHeader, Section, Seg, toast } from '../../components/UI';
 import {
   academicYearOf,
@@ -18,6 +19,7 @@ import {
   type Subject,
   type UserData,
 } from '../../lib/store';
+import { ExamDetail } from './ExamDetail';
 import { career, daysUntil, fmtAvg, fmtDate, fmtGrade, fmtHours, fmtNum, pacePerDay, parseDayKey, totalsBySubject } from '../../lib/stats';
 
 type Filter = 'all' | 'todo' | 'passed';
@@ -38,6 +40,7 @@ export function ExamsPage({ data }: { data: UserData; name: string }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [editExam, setEditExam] = useState<Subject | null>(null);
   const [editSem, setEditSem] = useState<Semester | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const { settings, subjects } = data;
   const cr = settings.creditLabel;
   const scale = settings.gradeScale;
@@ -66,6 +69,28 @@ export function ExamsPage({ data }: { data: UserData; name: string }) {
   const sub = [settings.programType, settings.degree, cr && settings.degreeCfu ? `${settings.degreeCfu} ${cr}` : ''].filter(Boolean).join(' · ');
 
   const upcoming = subjects.filter((s) => s.status !== 'passed' && (daysUntil(s.examDate) ?? -1) >= 0).length;
+
+  const modals = (
+    <>
+      {editExam && <ExamModal data={data} exam={editExam} isNew={!subjects.some((s) => s.id === editExam.id)} onClose={() => setEditExam(null)} />}
+      {editSem && (
+        <SemesterModal sem={editSem} label={settings.periodLabel} isNew={!data.semesters.some((s) => s.id === editSem.id)} onClose={() => setEditSem(null)} />
+      )}
+    </>
+  );
+
+  const detail = subjects.find((s) => s.id === detailId);
+  if (detail)
+    return (
+      <>
+        <ExamDetail data={data} s={detail} onBack={() => setDetailId(null)} onEdit={() => setEditExam(detail)} />
+        {modals}
+      </>
+    );
+
+  const goalRows = subjects
+    .filter((s) => s.status !== 'passed' && s.targetHours > 0)
+    .map((s) => ({ id: s.id, name: s.name, color: s.color, sec: hours.get(s.id) ?? 0, goal: s.targetHours * 3600 }));
 
   return (
     <>
@@ -145,6 +170,13 @@ export function ExamsPage({ data }: { data: UserData; name: string }) {
               ]}
             />
           </div>
+          {goalRows.length > 0 && filter !== 'passed' && (
+            <Section title="Obiettivo e studiato" note="tratteggio = ore previste">
+              <div className="card pad">
+                <GoalBars rows={goalRows} />
+              </div>
+            </Section>
+          )}
           {groups.map(({ sem, list }) => {
             if (!sem && list.length === 0) return null;
             const shown = list.filter(show);
@@ -176,7 +208,7 @@ export function ExamsPage({ data }: { data: UserData; name: string }) {
               >
                 <div className="card list">
                   {shown.map((s) => (
-                    <ExamRow key={s.id} s={s} settings={settings} sec={hours.get(s.id) ?? 0} onClick={() => setEditExam(s)} />
+                    <ExamRow key={s.id} s={s} settings={settings} sec={hours.get(s.id) ?? 0} onClick={() => setDetailId(s.id)} />
                   ))}
                   {shown.length === 0 && <p className="list-empty">{list.length ? 'Nessun esame con questo filtro' : `Nessun esame in questo ${period}`}</p>}
                   {sem && (
@@ -191,10 +223,7 @@ export function ExamsPage({ data }: { data: UserData; name: string }) {
         </>
       )}
 
-      {editExam && <ExamModal data={data} exam={editExam} isNew={!subjects.some((s) => s.id === editExam.id)} onClose={() => setEditExam(null)} />}
-      {editSem && (
-        <SemesterModal sem={editSem} label={settings.periodLabel} isNew={!data.semesters.some((s) => s.id === editSem.id)} onClose={() => setEditSem(null)} />
-      )}
+      {modals}
     </>
   );
 }

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { FOCUS_LEVELS } from './FocusOverlay';
 import { Empty } from '../../components/Charts';
-import { IconEdit, IconPlus, IconTrash } from '../../components/Icons';
-import { confirmDialog, Modal, SubjectSelect, toast } from '../../components/UI';
+import { IconChevron, IconEdit, IconPlus, IconTrash } from '../../components/Icons';
+import { ActivitySelect, confirmDialog, Modal, SubjectSelect, toast } from '../../components/UI';
 import { addSession, deleteSession, NO_SUBJECT_COLOR, saveSession, type Session, type UserData } from '../../lib/store';
-import { dayKey, fmtDate, fmtDur, fmtTime, parseDayKey } from '../../lib/stats';
+import { addDays, dayKey, fmtDate, fmtDur, fmtTime, parseDayKey } from '../../lib/stats';
 import { saveFile } from '../../lib/platform';
 
 const KIND: Record<Session['kind'], string> = { pomodoro: 'Pomodoro', stopwatch: 'Cronometro', countdown: 'Timer', manual: 'Manuale' };
@@ -108,78 +108,140 @@ export function FocusRating({ value, onChange }: { value: number; onChange: (v: 
   );
 }
 
-export function SessionModal({ data, session, defaultStart, onClose }: { data: UserData; session: Session | null; defaultStart?: number; onClose: () => void }) {
-  const base = session ?? { id: '', subjectId: data.timer.subjectId, start: defaultStart ?? Date.now() - 3600000, dur: data.settings.focusMin * 60, note: '', kind: 'manual' as const, focus: 0 };
-  const d0 = new Date(base.start);
-  const [date, setDate] = useState(dayKey(d0));
-  const [time, setTime] = useState(`${String(d0.getHours()).padStart(2, '0')}:${String(d0.getMinutes()).padStart(2, '0')}`);
-  const [h, setH] = useState(Math.floor(base.dur / 3600));
-  const [m, setM] = useState(Math.round((base.dur % 3600) / 60));
-  const [subjectId, setSubjectId] = useState(base.subjectId ?? '');
-  const [note, setNote] = useState(base.note);
-  const [focus, setFocus] = useState(base.focus);
+const two = (n: number) => String(n).padStart(2, '0');
+const hhmm = (ms: number) => `${two(new Date(ms).getHours())}:${two(new Date(ms).getMinutes())}`;
+const toMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
 
-  const submit = (close: () => void) => {
-    const dur = (h * 60 + m) * 60;
-    if (dur < 60) return toast('La durata deve essere di almeno 1 minuto');
-    const [y, mo, da] = date.split('-').map(Number);
-    const [hh, mm] = time.split(':').map(Number);
-    const start = new Date(y, mo - 1, da, hh, mm).getTime();
+/**
+ * Log or edit a session from its start, end and pause: the duration follows from them
+ * (an end before the start means the session ran past midnight).
+ */
+export function SessionForm({
+  data,
+  session,
+  defaultStart,
+  onDone,
+  onCancel,
+  submitLabel,
+}: {
+  data: UserData;
+  session: Session | null;
+  defaultStart?: number;
+  onDone?: () => void;
+  onCancel?: () => void;
+  submitLabel: string;
+}) {
+  const startMs = session?.start ?? defaultStart ?? Date.now() - (data.settings.focusMin + 1) * 60000;
+  const endMs = session ? session.start + (session.dur + session.breakSec) * 1000 : startMs + data.settings.focusMin * 60000;
+  const [date, setDate] = useState(dayKey(startMs));
+  const [from, setFrom] = useState(hhmm(startMs));
+  const [to, setTo] = useState(hhmm(endMs));
+  const [breakMin, setBreakMin] = useState(Math.round((session?.breakSec ?? 0) / 60));
+  const [subjectId, setSubjectId] = useState(session ? (session.subjectId ?? '') : (data.timer.subjectId ?? ''));
+  const [activityId, setActivityId] = useState(session ? (session.activityId ?? '') : (data.timer.activityId ?? ''));
+  const [note, setNote] = useState(session?.note ?? '');
+  const [focus, setFocus] = useState(session?.focus ?? 0);
+
+  let span = toMin(to) - toMin(from);
+  if (span <= 0) span += 24 * 60;
+  const durMin = span - breakMin;
+  const shiftDay = (n: number) => setDate(dayKey(addDays(parseDayKey(date), n)));
+
+  const reset = () => {
+    const now = Date.now();
+    setFrom(hhmm(now - data.settings.focusMin * 60000));
+    setTo(hhmm(now));
+    setBreakMin(0);
+    setNote('');
+    setFocus(0);
+  };
+
+  const submit = () => {
+    if (durMin < 1) return toast('La durata deve essere di almeno 1 minuto');
+    const start = parseDayKey(date).getTime() + toMin(from) * 60000;
     if (start > Date.now()) return toast('La sessione non può essere nel futuro');
-    const s = { ...base, start, dur, subjectId: subjectId || null, note: note.trim(), focus };
-    if (session) saveSession(s as Session);
-    else addSession({ start, dur, subjectId: s.subjectId, note: s.note, kind: 'manual', focus });
+    const fields = { start, dur: durMin * 60, breakSec: breakMin * 60, subjectId: subjectId || null, activityId: activityId || null, note: note.trim(), focus };
+    if (session) saveSession({ ...session, ...fields });
+    else addSession({ ...fields, kind: 'manual' });
     toast(session ? 'Sessione aggiornata' : 'Sessione aggiunta');
-    close();
+    if (!session && !onCancel) reset();
+    onDone?.();
   };
 
   return (
-    <Modal title={session ? 'Modifica sessione' : 'Nuova sessione'} onClose={onClose}>
-      {(close) => (
-        <>
-          <div className="form-grid">
-            <label className="field full">
-              <span className="field-label">Esame</span>
-              <SubjectSelect data={data} value={subjectId} onChange={setSubjectId} />
-            </label>
-            <label className="field">
-              <span className="field-label">Giorno</span>
-              <input className="in" type="date" value={date} max={dayKey(Date.now())} onChange={(e) => setDate(e.target.value)} />
-            </label>
-            <label className="field">
-              <span className="field-label">Ora di inizio</span>
-              <input className="in" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-            </label>
-            <label className="field">
-              <span className="field-label">Ore</span>
-              <input className="in" type="number" min={0} max={23} value={h} onChange={(e) => setH(Math.max(0, Math.min(23, Number(e.target.value) || 0)))} />
-            </label>
-            <label className="field">
-              <span className="field-label">Minuti</span>
-              <input className="in" type="number" min={0} max={59} value={m} onChange={(e) => setM(Math.max(0, Math.min(59, Number(e.target.value) || 0)))} />
-            </label>
-            <label className="field full">
-              <span className="field-label">Nota</span>
-              <textarea className="in" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cosa hai studiato?" />
-            </label>
-            <div className="field full">
-              <span className="field-label">Concentrazione</span>
-              <FocusRating value={focus} onChange={setFocus} />
-            </div>
+    <>
+      <div className="form-grid">
+        <div className="field full">
+          <span className="field-label">Giorno</span>
+          <div className="date-stepper">
+            <button type="button" className="btn icon" aria-label="Giorno precedente" onClick={() => shiftDay(-1)}>
+              <IconChevron style={{ transform: 'rotate(180deg)' }} />
+            </button>
+            <input className="in" type="date" value={date} max={dayKey(Date.now())} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Giorno" />
+            <button type="button" className="btn icon" aria-label="Giorno successivo" disabled={date >= dayKey(Date.now())} onClick={() => shiftDay(1)}>
+              <IconChevron />
+            </button>
           </div>
-          <footer className="modal-foot">
-            <span />
-            <div className="modal-buttons">
-              <button className="btn" onClick={close}>
-                Annulla
-              </button>
-              <button className="btn primary" onClick={() => submit(close)}>
-                Salva
-              </button>
-            </div>
-          </footer>
-        </>
-      )}
+        </div>
+        <div className="field-row full">
+          <label className="field">
+            <span className="field-label">Inizio</span>
+            <input className="in" type="time" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Fine</span>
+            <input className="in" type="time" value={to} onChange={(e) => setTo(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Pausa (min)</span>
+            <input className="in" type="number" min={0} max={600} value={breakMin} onChange={(e) => setBreakMin(Math.max(0, Math.min(600, Number(e.target.value) || 0)))} />
+          </label>
+        </div>
+        <p className="field-note full tnum">
+          Durata: <b>{durMin >= 1 ? fmtDur(durMin * 60) : '–'}</b>
+          {breakMin > 0 && durMin >= 1 ? ` · ${fmtDur(span * 60)} con la pausa` : ''}
+        </p>
+        <label className="field">
+          <span className="field-label">Esame</span>
+          <SubjectSelect data={data} value={subjectId} onChange={setSubjectId} />
+        </label>
+        <label className="field">
+          <span className="field-label">Attività</span>
+          <ActivitySelect data={data} value={activityId} onChange={setActivityId} />
+        </label>
+        <label className="field full">
+          <span className="field-label">Nota</span>
+          <textarea className="in" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Es. ripasso lezione 1, slide 1–20" />
+        </label>
+        <div className="field full">
+          <span className="field-label">Concentrazione</span>
+          <FocusRating value={focus} onChange={setFocus} />
+        </div>
+      </div>
+      <footer className="modal-foot">
+        <span />
+        <div className="modal-buttons">
+          {onCancel && (
+            <button className="btn" onClick={onCancel}>
+              Annulla
+            </button>
+          )}
+          <button className="btn primary" onClick={submit} disabled={durMin < 1}>
+            {submitLabel}
+          </button>
+        </div>
+      </footer>
+    </>
+  );
+}
+
+export function SessionModal({ data, session, defaultStart, onClose }: { data: UserData; session: Session | null; defaultStart?: number; onClose: () => void }) {
+  return (
+    <Modal title={session ? 'Modifica sessione' : 'Nuova sessione'} onClose={onClose}>
+      {(close) => <SessionForm data={data} session={session} defaultStart={defaultStart} onDone={close} onCancel={close} submitLabel="Salva" />}
     </Modal>
   );
 }
@@ -194,11 +256,12 @@ export function FocusBars({ n }: { n: number }) {
   );
 }
 
-export async function exportCsv(data: UserData) {
-  const rows = [['data', 'inizio', 'durata_minuti', 'esame', 'tipo', 'concentrazione', 'nota']];
-  for (const s of data.sessions) {
+export async function exportCsv(data: UserData, sessions?: Session[]) {
+  const rows = [['data', 'inizio', 'durata_minuti', 'pausa_minuti', 'esame', 'attivita', 'tipo', 'concentrazione', 'nota']];
+  for (const s of sessions ?? data.sessions) {
     const sub = data.subjects.find((x) => x.id === s.subjectId);
-    rows.push([dayKey(s.start), fmtTime(s.start), String(Math.round(s.dur / 60)), sub?.name ?? '', s.kind, s.focus ? String(s.focus) : '', s.note]);
+    const act = data.activities.find((x) => x.id === s.activityId);
+    rows.push([dayKey(s.start), fmtTime(s.start), String(Math.round(s.dur / 60)), String(Math.round(s.breakSec / 60)), sub?.name ?? '', act?.name ?? '', s.kind, s.focus ? String(s.focus) : '', s.note]);
   }
   const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
   const r = await saveFile(`sessioni-studio-${dayKey(Date.now())}.csv`, csv, 'text/csv');
