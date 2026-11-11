@@ -16,7 +16,7 @@ const PRESETS = [
 export function TimerPage({ data }: { data: UserData; name: string }) {
   const t = data.timer;
   const s = data.settings;
-  const now = useNow(t.running);
+  const now = useNow(t.running || !!t.breakEndedAt);
   const target = targetMs(t, data);
   const el = elapsed(t, now);
   const shown = target === null ? el : Math.max(0, target - el);
@@ -85,6 +85,12 @@ export function TimerPage({ data }: { data: UserData; name: string }) {
             <span className="dot" style={{ background: data.activities.find((a) => a.id === t.activityId)?.color ?? NO_SUBJECT_COLOR }} />
             <ActivitySelect data={data} value={t.activityId ?? ''} onChange={(v) => setTimer({ activityId: v || null })} />
           </label>
+          {!isBreak && subject?.nextStep && (
+            <p className="timer-next">
+              <b>Riparti da:</b> {subject.nextStep}
+            </p>
+          )}
+          {t.breakEndedAt && !t.running && <p className="timer-next" data-tone="warn">Pausa finita da {Math.max(1, Math.round((now - t.breakEndedAt) / 60000))} min: quando sei pronto, riparti.</p>}
 
           <Ring pct={pct} size={288} stroke={10} color={isBreak ? 'var(--green)' : 'var(--accent)'}>
             <span className="timer-phase">{label}</span>

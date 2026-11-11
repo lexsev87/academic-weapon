@@ -11,7 +11,13 @@ interface NativeBridge {
   backup: (json: string, dir: string) => Promise<BackupResult>;
   chooseFolder: () => Promise<string | null>;
   reveal: (path: string) => void;
+  /** Claude API (weekly review): the key lives in the Mac's encrypted storage, never in the page. */
+  claudeKeyStatus?: () => Promise<{ set: boolean; hint: string }>;
+  claudeKeySet?: (key: string) => Promise<{ ok: boolean; error?: string }>;
+  claudeKeyClear?: () => Promise<void>;
+  claudeAsk?: (system: string, prompt: string) => Promise<ClaudeAnswer>;
 }
+export type ClaudeAnswer = { ok: true; text: string } | { ok: false; code: 'no-key' | 'auth' | 'rate' | 'network' | 'refused' | 'other'; message?: string };
 const native = (window as unknown as { aw?: NativeBridge }).aw;
 export const isMacApp = !!native;
 
@@ -93,3 +99,10 @@ export const reveal = (path: string) => native?.reveal(path);
 export function writeBackup(json: string, dir: string): Promise<BackupResult> {
   return native ? native.backup(json, dir) : Promise.resolve({ ok: false, error: 'Disponibile solo nell’app per Mac' });
 }
+
+/* Claude for the weekly review (Mac app): requests are made by the Electron main process. */
+export const hasNativeClaude = !!native?.claudeAsk;
+export const claudeKeyStatus = () => native?.claudeKeyStatus?.() ?? Promise.resolve({ set: false, hint: '' });
+export const claudeKeySet = (key: string) => native?.claudeKeySet?.(key) ?? Promise.resolve({ ok: false, error: 'Disponibile solo nell’app per Mac' });
+export const claudeKeyClear = () => native?.claudeKeyClear?.() ?? Promise.resolve();
+export const askClaudeNative = (system: string, prompt: string): Promise<ClaudeAnswer> => native?.claudeAsk?.(system, prompt) ?? Promise.resolve({ ok: false, code: 'other' });

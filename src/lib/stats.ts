@@ -91,7 +91,13 @@ export function partsByDay(sessions: Session[], subjects: Subject[]) {
 /* ---------- daily goals ---------- */
 /** Goal in seconds for the given day (weekday-specific). */
 /** Planned time for the day in seconds, as set (breaks included when counting in blocks). */
-export const plannedFor = (settings: Settings, d: Date | number = new Date()) => (settings.dayGoals[new Date(d).getDay()] ?? 0) * 60;
+export const plannedFor = (settings: Settings, d: Date | number = new Date()) => (isDayOff(settings, d) ? 0 : (settings.dayGoals[new Date(d).getDay()] ?? 0) * 60);
+/** True on holidays, trips and other days the user marked as free: no goal that day. */
+export function isDayOff(settings: Settings, d: Date | number) {
+  if (!settings.daysOff?.length) return false;
+  const k = dayKey(d);
+  return settings.daysOff.some((x) => x.from <= k && k <= (x.to || x.from));
+}
 /** Length of one pomodoro block (focus + short break), in seconds. */
 export const blockSec = (s: Settings) => (s.focusMin + s.shortMin) * 60;
 /**

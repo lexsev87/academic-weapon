@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { getData, setSettings } from './store';
 import { isMacApp, writeBackup } from './native';
 
-const WEEK = 7 * 86400000;
+const DAY = 86400000;
 
 /** Writes a backup file now (Mac app only) and remembers when. */
 export async function runBackup() {
@@ -12,13 +12,13 @@ export async function runBackup() {
   return res;
 }
 
-/** Once a week, quietly back everything up (checked at launch and every hour). */
+/** Once a day, quietly back everything up (checked at launch and every hour). */
 export function useAutoBackup() {
   useEffect(() => {
     if (!isMacApp) return;
     const check = () => {
       const s = getData().settings;
-      if (s.autoBackup && s.setupDone && Date.now() - s.lastBackupAt > WEEK) runBackup();
+      if (s.autoBackup && s.setupDone && Date.now() - s.lastBackupAt > DAY) runBackup();
     };
     const first = setTimeout(check, 5000);
     const id = setInterval(check, 3600000);

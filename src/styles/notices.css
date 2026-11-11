@@ -1,0 +1,27 @@
+/* Notices about the user's data. Imported, in order, by app.css. */
+
+/* ---------- notices about the user's data ---------- */
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: var(--shadow-card);
+  font-size: var(--t-callout);
+}
+.notice[data-tone='bad'] {
+  background: color-mix(in srgb, var(--red) 12%, var(--surface));
+}
+.notice p {
+  flex: 1 1 320px;
+  color: var(--label);
+}
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}

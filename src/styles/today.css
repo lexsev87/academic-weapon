@@ -1,0 +1,141 @@
+/* Metric tiles and the Oggi hero card. Imported, in order, by app.css. */
+
+/* ---------- metrics (Health-style) ---------- */
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s4) var(--s4) var(--s4) var(--s5);
+}
+.metric-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: var(--s2);
+  font-size: var(--t-callout);
+  font-weight: 600;
+}
+.metric-value {
+  font-family: var(--font-display);
+  font-size: var(--t-title);
+  line-height: var(--t-title-lh);
+  letter-spacing: var(--t-title-ls);
+  font-weight: 700;
+}
+.metric-note {
+  font-size: var(--t-callout);
+  color: var(--label-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- today ---------- */
+.today-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.today-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s8);
+  padding: var(--s6) var(--s8);
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%);
+}
+.today-card.is-done .today-main {
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--green) 14%, transparent), transparent 60%);
+}
+.today-ring-value {
+  font-family: var(--font-round);
+  font-size: 1.875rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.today-ring-unit {
+  margin-top: 3px;
+  font-size: var(--t-caption);
+  color: var(--label-3);
+}
+.today-text {
+  flex: 1;
+  min-width: 0;
+}
+.today-kicker {
+  font-size: var(--t-callout);
+  font-weight: 600;
+  color: var(--accent);
+}
+.today-card.is-done .today-kicker {
+  color: var(--green);
+}
+.today-headline {
+  margin: 2px 0 var(--s1);
+  font-size: var(--t-large);
+  line-height: var(--t-large-lh);
+  letter-spacing: var(--t-large-ls);
+  font-weight: 700;
+}
+.today-detail {
+  color: var(--label-2);
+}
+.today-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  margin-top: var(--s4);
+}
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, 1.4fr);
+  align-items: center;
+  padding: var(--s3) var(--s4) var(--s4);
+  box-shadow: inset 0 0.5px 0 var(--separator);
+}
+.week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s1) 0;
+}
+.week-day[data-future] {
+  opacity: 0.5;
+}
+.week-name {
+  font-size: var(--t-caption);
+  font-weight: 600;
+  letter-spacing: var(--t-caption-ls);
+  color: var(--label-3);
+  text-transform: capitalize;
+}
+.week-day[data-today] .week-name {
+  color: var(--accent);
+}
+.week-ring {
+  display: grid;
+}
+.week-value {
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--label-2);
+}
+.week-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-right: var(--s3);
+}
+.week-total-value {
+  font-family: var(--font-display);
+  font-size: var(--t-title);
+  line-height: var(--t-title-lh);
+  letter-spacing: var(--t-title-ls);
+  font-weight: 700;
+}
+.week-total-label {
+  font-size: var(--t-caption);
+  color: var(--label-3);
+}

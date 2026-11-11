@@ -12,11 +12,13 @@ export function readStore(key: string): string | null {
     return null;
   }
 }
-export function writeStore(key: string, value: string) {
+/** False when the value could not be saved (storage full, blocked or missing). */
+export function writeStore(key: string, value: string): boolean {
   try {
     window.localStorage.setItem(key, value);
+    return true;
   } catch {
-    /* storage unavailable: the app keeps running on in-memory state */
+    return false; // the app keeps running on in-memory state
   }
 }
 

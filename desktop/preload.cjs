@@ -9,4 +9,8 @@ contextBridge.exposeInMainWorld('aw', {
   backup: (json, dir) => ipcRenderer.invoke('aw:backup', String(json), String(dir || '')),
   chooseFolder: () => ipcRenderer.invoke('aw:choose-folder'),
   reveal: (p) => ipcRenderer.send('aw:reveal', String(p)),
+  claudeKeyStatus: () => ipcRenderer.invoke('aw:claude-key-status'),
+  claudeKeySet: (key) => ipcRenderer.invoke('aw:claude-key-set', String(key)),
+  claudeKeyClear: () => ipcRenderer.invoke('aw:claude-key-clear'),
+  claudeAsk: (system, prompt) => ipcRenderer.invoke('aw:claude-ask', String(system), String(prompt)),
 });

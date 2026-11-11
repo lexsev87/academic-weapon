@@ -1,0 +1,203 @@
+/* Session form and the Sessioni page. Imported, in order, by app.css. */
+
+/* ---------- session form ---------- */
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--s3);
+}
+.form-grid > .full {
+  grid-column: 1 / -1;
+}
+.field-note {
+  margin-top: calc(var(--s2) * -1);
+  font-size: var(--t-callout);
+  color: var(--label-3);
+}
+.field-note b {
+  color: var(--label);
+  font-weight: 600;
+}
+.date-stepper {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--s2);
+}
+.form-card {
+  padding: var(--s5);
+}
+.form-card .modal-foot {
+  margin-top: var(--s5);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* ---------- sessions page ---------- */
+.sessions-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: var(--s6);
+  align-items: start;
+}
+.sessions-new {
+  position: sticky;
+  top: 64px;
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+.filter-bar .in {
+  width: auto;
+  min-width: 140px;
+  flex: 1;
+}
+.filter-bar .search {
+  flex: 2;
+}
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: var(--t-callout);
+  font-weight: 600;
+  animation: pill-in var(--d-fast) var(--ease-out);
+}
+.bulk-bar span {
+  flex: 1;
+}
+.table-card {
+  padding: 0;
+  overflow-x: auto;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-callout);
+}
+.data-table th {
+  padding: var(--s2) var(--s3);
+  text-align: left;
+  font-weight: 600;
+  color: var(--label-3);
+  white-space: nowrap;
+  border-bottom: 0.5px solid var(--separator);
+}
+.data-table td {
+  padding: var(--s2) var(--s3);
+  vertical-align: middle;
+  border-bottom: 0.5px solid var(--separator);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.data-table tr[data-picked] td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.data-table .num {
+  text-align: right;
+}
+.data-table .nowrap {
+  white-space: nowrap;
+}
+.data-table tfoot td {
+  font-weight: 600;
+  border-top: 0.5px solid var(--separator-strong);
+  border-bottom: 0;
+}
+.col-check {
+  width: 28px;
+}
+.col-note {
+  width: 40%;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.col-actions {
+  width: 36px;
+  text-align: right;
+}
+.secondary {
+  color: var(--label-3);
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  color: color-mix(in srgb, var(--c) 75%, var(--label));
+  font-size: var(--t-caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.session-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s3);
+}
+.session-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: var(--s3) var(--s4) var(--s4);
+  box-shadow: inset 3px 0 0 var(--c);
+}
+.session-card[data-picked] {
+  outline: 2px solid var(--accent);
+}
+.session-card header {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+}
+.session-card-date {
+  flex: 1;
+  font-size: var(--t-callout);
+  font-weight: 600;
+  color: var(--label-2);
+  text-transform: capitalize;
+}
+.session-card-dur {
+  font-size: var(--t-title);
+  font-weight: 700;
+}
+.session-card-note {
+  font-size: var(--t-callout);
+  color: var(--label-2);
+}
+@media (max-width: 1020px) {
+  .sessions-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sessions-new {
+    position: static;
+  }
+}
+@media (max-width: 720px) {
+  .field-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .field-row .field:last-child {
+    grid-column: 1 / -1;
+  }
+  .col-note {
+    display: none;
+  }
+}

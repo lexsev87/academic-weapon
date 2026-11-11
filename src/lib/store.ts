@@ -13,6 +13,22 @@ export interface Session {
   focus: number; // self-rated concentration 1..5, 0 = not rated
   activityId: string | null; // what kind of work: lettura, esercizi…
   breakSec: number; // pause inside the session, not counted in `dur`
+  pauses: number; // times the timer was paused during the block (0 for manual sessions)
+  pausedSec: number; // time spent paused during the block
+}
+/** Days without a goal: holidays, trips, exam days. Inclusive range of day keys. */
+export interface DayOff {
+  id: string;
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+  label: string;
+}
+/** A weekly review written by Claude (or pasted back by the user). */
+export interface Review {
+  id: string;
+  at: number; // ms epoch
+  weekStart: string; // YYYY-MM-DD
+  text: string;
 }
 /** A kind of study work (Lettura, Esercizi, Ripasso…), the second axis next to the exam. */
 export interface Activity {
@@ -67,6 +83,7 @@ export interface Subject {
   targetHours: number; // 0 = none
   weeklyGoalMin: number; // 0 = none
   notes: string;
+  nextStep: string; // where to pick up next time, shown when the timer starts on this exam
 }
 export interface Settings {
   setupDone: boolean;
@@ -99,6 +116,15 @@ export interface Settings {
   /** Tracking period (the "anno" the goals refer to). '' = the current academic year. */
   trackStart: string;
   trackEnd: string;
+  daysOff: DayOff[];
+  /** After a break ends without restarting, remind again (minutes; 0 = off). */
+  breakNudgeMin: number;
+  /** Last manual export of the data (web reminder). */
+  lastExportAt: number;
+  /** Until when the "export your data" reminder is snoozed. */
+  exportSnoozeUntil: number;
+  /** Weekly review with Claude: off unless the user turns it on. */
+  reviewEnabled: boolean;
 }
 export type TimerMode = 'pomodoro' | 'stopwatch' | 'countdown';
 export type Phase = 'focus' | 'short' | 'long';
@@ -114,8 +140,14 @@ export interface TimerState {
   cycle: number;
   countdownMin: number;
   sessionStart: number | null;
+  /** Pauses taken during the current focus block, and when the current one began. */
+  pauses: number;
+  pausedMs: number;
+  pausedAt: number | null;
+  /** When the last break ran out without the next block starting (for the reminder). */
+  breakEndedAt: number | null;
   /** A finished session waiting to be logged (end-of-session sheet). */
-  pending: { start: number; dur: number; kind: SessionKind; thenBreak: boolean } | null;
+  pending: { start: number; dur: number; kind: SessionKind; thenBreak: boolean; pauses?: number; pausedSec?: number } | null;
 }
 export interface UserData {
   settings: Settings;
@@ -123,6 +155,7 @@ export interface UserData {
   subjects: Subject[];
   activities: Activity[];
   sessions: Session[];
+  reviews: Review[];
   timer: TimerState;
 }
 
@@ -162,6 +195,11 @@ export const DEFAULT_SETTINGS: Settings = {
   lastBackupAt: 0,
   trackStart: '',
   trackEnd: '',
+  daysOff: [],
+  breakNudgeMin: 3,
+  lastExportAt: 0,
+  exportSnoozeUntil: 0,
+  reviewEnabled: false,
 };
 
 export const DEFAULT_TIMER: TimerState = {
@@ -176,6 +214,10 @@ export const DEFAULT_TIMER: TimerState = {
   cycle: 0,
   countdownMin: 45,
   sessionStart: null,
+  pauses: 0,
+  pausedMs: 0,
+  pausedAt: null,
+  breakEndedAt: null,
   pending: null,
 };
 
@@ -196,6 +238,7 @@ export function newSubject(p: Partial<Subject> = {}): Subject {
     targetHours: 0,
     weeklyGoalMin: 0,
     notes: '',
+    nextStep: '',
     ...p,
   };
 }
@@ -210,6 +253,7 @@ const freshData = (): UserData => ({
   subjects: [],
   activities: defaultActivities(),
   sessions: [],
+  reviews: [],
   timer: { ...DEFAULT_TIMER },
 });
 
@@ -224,6 +268,7 @@ function normalize(raw: Partial<UserData> | null): UserData {
   // Earlier versions had one daily goal for every day.
   if (!Array.isArray(old.dayGoals) || old.dayGoals.length !== 7) settings.dayGoals = Array(7).fill(old.dailyGoalMin ?? 180);
   delete (settings as OldSettings).dailyGoalMin;
+  if (!Array.isArray(settings.daysOff)) settings.daysOff = [];
   return {
     settings,
     semesters: ((raw.semesters ?? []) as OldSemester[]).map((x) => ({
@@ -235,7 +280,8 @@ function normalize(raw: Partial<UserData> | null): UserData {
     })),
     subjects: (raw.subjects ?? []).map((s) => newSubject(s)),
     activities: Array.isArray(raw.activities) ? raw.activities : defaultActivities(),
-    sessions: (raw.sessions ?? []).map((x) => ({ ...x, focus: x.focus ?? 0, activityId: x.activityId ?? null, breakSec: x.breakSec ?? 0 })),
+    sessions: (raw.sessions ?? []).map((x) => ({ ...x, focus: x.focus ?? 0, activityId: x.activityId ?? null, breakSec: x.breakSec ?? 0, pauses: x.pauses ?? 0, pausedSec: x.pausedSec ?? 0 })),
+    reviews: Array.isArray(raw.reviews) ? raw.reviews : [],
     timer: { ...DEFAULT_TIMER, ...raw.timer },
   };
 }
@@ -252,23 +298,62 @@ const subscribe = (cb: () => void) => {
 
 let cache: UserData | null = null;
 
+/* Safety net. A save that cannot be read must never be overwritten by an empty profile:
+   the unreadable text is set aside, and the last good daily snapshot is restored if there is one. */
+const K_PREV = 'aw:data:prev'; // last good save, refreshed once a day
+const K_PREV_DAY = 'aw:data:prev-day';
+const K_BROKEN = 'aw:data:broken'; // the text that could not be read
+
+export type StorageProblem = null | { kind: 'restored'; from: string } | { kind: 'lost' } | { kind: 'write' };
+let problem: StorageProblem = null;
+export const getStorageProblem = () => problem;
+export function clearStorageProblem() {
+  problem = null;
+  emit();
+}
+/** The unreadable save, if one was set aside (so it can be exported and inspected). */
+export const brokenSave = () => readStore(K_BROKEN);
+
+const parse = (v: string) => {
+  const raw = JSON.parse(v) as Partial<UserData>;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('not a profile');
+  return normalize(raw);
+};
+const today = () => new Date().toISOString().slice(0, 10);
+
 function load(): UserData {
   if (cache) return cache;
+  const v = readStore(K_DATA);
+  if (!v) return (cache = freshData());
   try {
-    const v = readStore(K_DATA);
-    cache = normalize(v ? (JSON.parse(v) as Partial<UserData>) : null);
+    cache = parse(v);
+    // Once a day, keep this good save as the fallback.
+    if (readStore(K_PREV_DAY) !== today() && writeStore(K_PREV, v)) writeStore(K_PREV_DAY, today());
+    return cache;
   } catch {
-    cache = freshData();
+    writeStore(K_BROKEN, v);
+    const prev = readStore(K_PREV);
+    try {
+      if (!prev) throw new Error('no snapshot');
+      cache = parse(prev);
+      writeStore(K_DATA, prev);
+      problem = { kind: 'restored', from: readStore(K_PREV_DAY) ?? '' };
+    } catch {
+      cache = freshData();
+      problem = { kind: 'lost' };
+    }
+    return cache;
   }
-  return cache;
 }
 
-window.addEventListener('storage', (e) => {
-  if (e.key === K_DATA) {
-    cache = null;
-    emit();
-  }
-});
+// Another window of the app saved: read it again. (No window when the calculations run under test.)
+if (typeof window !== 'undefined')
+  window.addEventListener('storage', (e) => {
+    if (e.key === K_DATA) {
+      cache = null;
+      emit();
+    }
+  });
 
 export function useData(): UserData {
   return useSyncExternalStore(subscribe, load);
@@ -276,17 +361,20 @@ export function useData(): UserData {
 export function getData(): UserData {
   return load();
 }
+export function useStorageProblem(): StorageProblem {
+  return useSyncExternalStore(subscribe, getStorageProblem);
+}
 
 export function update(fn: (d: UserData) => UserData) {
   cache = fn(load());
-  writeStore(K_DATA, JSON.stringify(cache));
+  if (!writeStore(K_DATA, JSON.stringify(cache)) && !problem) problem = { kind: 'write' };
   emit();
 }
 
 export const setSettings = (p: Partial<Settings>) => update((d) => ({ ...d, settings: { ...d.settings, ...p } }));
 export const setTimer = (p: Partial<TimerState>) => update((d) => ({ ...d, timer: { ...d.timer, ...p } }));
-export const addSession = (s: Omit<Session, 'id' | 'focus' | 'activityId' | 'breakSec'> & Partial<Pick<Session, 'focus' | 'activityId' | 'breakSec'>>) =>
-  update((d) => ({ ...d, sessions: [...d.sessions, { focus: 0, activityId: null, breakSec: 0, ...s, id: uid() }].sort((a, b) => a.start - b.start) }));
+export const addSession = (s: Omit<Session, 'id' | 'focus' | 'activityId' | 'breakSec' | 'pauses' | 'pausedSec'> & Partial<Pick<Session, 'focus' | 'activityId' | 'breakSec' | 'pauses' | 'pausedSec'>>) =>
+  update((d) => ({ ...d, sessions: [...d.sessions, { focus: 0, activityId: null, breakSec: 0, pauses: 0, pausedSec: 0, ...s, id: uid() }].sort((a, b) => a.start - b.start) }));
 export const saveSession = (s: Session) =>
   update((d) => ({ ...d, sessions: d.sessions.map((x) => (x.id === s.id ? s : x)).sort((a, b) => a.start - b.start) }));
 export const deleteSession = (id: string) => update((d) => ({ ...d, sessions: d.sessions.filter((x) => x.id !== id) }));

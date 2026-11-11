@@ -72,32 +72,38 @@ export function start() {
   const d = getData();
   const t = d.timer;
   if (t.running || t.pending) return;
-  setTimer({ running: true, startedAt: Date.now(), sessionStart: t.sessionStart ?? Date.now() });
+  const now = Date.now();
+  // Coming back from a pause inside a block: count how long it lasted.
+  const pausedMs = t.pausedAt ? t.pausedMs + (now - t.pausedAt) : t.pausedMs;
+  setTimer({ running: true, startedAt: now, sessionStart: t.sessionStart ?? now, pausedMs, pausedAt: null, breakEndedAt: null });
   if (d.settings.fullscreenOnStart) setFocusView(true);
 }
 export function pause() {
   const d = getData();
-  if (!d.timer.running) return;
-  setTimer({ running: false, elapsedMs: elapsed(d.timer), startedAt: null });
+  const t = d.timer;
+  if (!t.running) return;
+  const inFocus = t.mode !== 'pomodoro' || t.phase === 'focus';
+  setTimer({ running: false, elapsedMs: elapsed(t), startedAt: null, ...(inFocus ? { pauses: t.pauses + 1, pausedAt: Date.now() } : {}) });
 }
 export function resetTimer() {
-  setTimer({ running: false, startedAt: null, elapsedMs: 0, sessionStart: null });
+  setTimer(STOPPED);
 }
 export function setMode(mode: TimerMode) {
-  setTimer({ mode, phase: 'focus', running: false, startedAt: null, elapsedMs: 0, sessionStart: null });
+  setTimer({ ...STOPPED, mode, phase: 'focus' });
 }
 
-const STOPPED = { running: false, startedAt: null, elapsedMs: 0, sessionStart: null } as const;
+const STOPPED = { running: false, startedAt: null, elapsedMs: 0, sessionStart: null, pauses: 0, pausedMs: 0, pausedAt: null, breakEndedAt: null } as const;
 
 /** A focus block ended: open the end-of-session sheet, or save straight away if that is turned off. */
 function finishFocus(t: TimerState, ms: number, thenBreak: boolean) {
   if (ms < 60000) return false;
-  const pending = { start: t.sessionStart ?? Date.now() - ms, dur: Math.round(ms / 1000), kind: t.mode, thenBreak };
+  const pausedMs = t.pausedMs + (t.pausedAt ? Date.now() - t.pausedAt : 0);
+  const pending = { start: t.sessionStart ?? Date.now() - ms, dur: Math.round(ms / 1000), kind: t.mode, thenBreak, pauses: t.pauses, pausedSec: Math.round(pausedMs / 1000) };
   if (getData().settings.logAfterSession) {
     setTimer({ ...STOPPED, pending });
     setFocusView(true);
   } else {
-    addSession({ subjectId: t.subjectId, activityId: t.activityId, start: pending.start, dur: pending.dur, note: t.note.trim(), kind: t.mode });
+    addSession({ subjectId: t.subjectId, activityId: t.activityId, start: pending.start, dur: pending.dur, note: t.note.trim(), kind: t.mode, pauses: pending.pauses, pausedSec: pending.pausedSec });
     setTimer({ ...STOPPED, note: '' });
     if (thenBreak) startBreak();
   }
@@ -117,7 +123,17 @@ export function finishAndSave() {
 export function saveLog(p: { subjectId: string | null; activityId: string | null; dur: number; note: string; focus: number }, withBreak: boolean) {
   const t = getData().timer;
   if (!t.pending) return;
-  addSession({ subjectId: p.subjectId, activityId: p.activityId, start: t.pending.start, dur: p.dur, note: p.note.trim(), kind: t.pending.kind, focus: p.focus });
+  addSession({
+    subjectId: p.subjectId,
+    activityId: p.activityId,
+    start: t.pending.start,
+    dur: p.dur,
+    note: p.note.trim(),
+    kind: t.pending.kind,
+    focus: p.focus,
+    pauses: t.pending.pauses ?? 0,
+    pausedSec: t.pending.pausedSec ?? 0,
+  });
   setTimer({ pending: null, note: '', subjectId: p.subjectId, activityId: p.activityId });
   if (withBreak && t.mode === 'pomodoro') startBreak();
   else setFocusView(false);
@@ -131,7 +147,7 @@ export function discardLog() {
 export function startBreak() {
   const { timer: t, settings: s } = getData();
   const cycle = t.cycle + 1;
-  setTimer({ mode: 'pomodoro', phase: cycle % s.longEvery === 0 ? 'long' : 'short', cycle, running: true, startedAt: Date.now(), elapsedMs: 0, sessionStart: Date.now() });
+  setTimer({ ...STOPPED, mode: 'pomodoro', phase: cycle % s.longEvery === 0 ? 'long' : 'short', cycle, running: true, startedAt: Date.now(), sessionStart: Date.now() });
 }
 
 /** Pomodoro: move to the next phase by hand (skip). */
@@ -156,7 +172,7 @@ function complete(d: UserData) {
   } else {
     notify('Pausa finita', 'Si riparte: torna a concentrarti.', 'break');
     const auto = d.settings.autoFocus;
-    setTimer({ phase: 'focus', running: auto, startedAt: auto ? Date.now() : null, elapsedMs: 0, sessionStart: auto ? Date.now() : null });
+    setTimer({ ...STOPPED, phase: 'focus', running: auto, startedAt: auto ? Date.now() : null, sessionStart: auto ? Date.now() : null, breakEndedAt: auto ? null : Date.now() });
   }
 }
 
@@ -179,6 +195,24 @@ export function useTimerEngine(data: UserData | null) {
     }, 250);
     return () => clearInterval(id);
   }, [running]);
+
+  // The break ran out and the next block has not started: remind again, up to three times.
+  const breakEndedAt = data?.timer.breakEndedAt ?? null;
+  const nudgeMin = data?.settings.breakNudgeMin ?? 0;
+  useEffect(() => {
+    if (!breakEndedAt || running || nudgeMin <= 0) return;
+    const ids = [1, 2, 3].map((n) => {
+      const wait = breakEndedAt + n * nudgeMin * 60000 - Date.now();
+      if (wait <= 0) return null;
+      return setTimeout(() => {
+        const t = getData().timer;
+        if (t.running || t.breakEndedAt !== breakEndedAt) return;
+        attention();
+        notify(`Pausa finita da ${n * nudgeMin} minuti`, 'Riparti con il prossimo blocco.', 'break');
+      }, wait);
+    });
+    return () => ids.forEach((id) => id && clearTimeout(id));
+  }, [breakEndedAt, running, nudgeMin]);
 }
 
 /** Re-render every 250ms while the timer is running (for live clocks). */

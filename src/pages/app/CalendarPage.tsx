@@ -19,7 +19,9 @@ export function CalendarPage({ data }: { data: UserData; name: string }) {
   const [editing, setEditing] = useState<{ session: Session | null; start?: number } | null>(null);
   const ws = data.settings.weekStart;
 
-  useEffect(() => writeStore('aw:calview', view), [view]);
+  useEffect(() => {
+    writeStore('aw:calview', view);
+  }, [view]);
 
   const sessions = data.sessions.filter((s) => filter === '__all' || (filter === '' ? !s.subjectId : s.subjectId === filter));
   const subjectOf = (s: Session) => data.subjects.find((x) => x.id === s.subjectId);

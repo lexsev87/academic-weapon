@@ -1,0 +1,317 @@
+/* Focus page and the full-screen clock. Imported, in order, by app.css. */
+
+/* ---------- focus page ---------- */
+.timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s5);
+  padding: var(--s6) var(--s6) var(--s5);
+}
+.timer-subject {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: min(340px, 100%);
+}
+.timer-subject .in {
+  font-weight: 600;
+}
+.timer-phase {
+  margin-bottom: var(--s1);
+  font-size: var(--t-callout);
+  font-weight: 600;
+  color: var(--accent);
+}
+.timer[data-phase='break'] .timer-phase {
+  color: var(--green);
+}
+.timer-clock {
+  font-family: var(--font-round);
+  font-size: 4.25rem;
+  line-height: 1;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+}
+.cycle {
+  display: flex;
+  gap: 6px;
+  margin-top: var(--s3);
+}
+.cycle i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--track);
+}
+.cycle i[data-on] {
+  background: var(--accent);
+}
+.cycle.light i {
+  background: rgba(255, 255, 255, 0.3);
+}
+.cycle.light i[data-on] {
+  background: #fff;
+}
+.transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s5);
+}
+.btn-circle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--label);
+  transition: transform var(--d-press) var(--ease-out);
+}
+.play-button {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+  transition: transform var(--d-press) var(--ease-out);
+}
+.timer[data-phase='break'] .play-button {
+  background: var(--green);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--green) 35%, transparent);
+}
+.timer-note {
+  max-width: 420px;
+  text-align: center;
+}
+.timer-foot {
+  display: flex;
+  gap: var(--s2);
+}
+.hint-line {
+  font-size: var(--t-caption);
+  color: var(--label-3);
+  text-align: center;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-circle:not(.glass):hover {
+    background: var(--fill-2);
+  }
+}
+
+/* ---------- full-screen focus ----------
+   Backdrop fades in, the window goes full screen behind it, then the clock rises in.
+   Only opacity/transform animate. Opened a few times a day, so a calmer entrance is fine. */
+.focus-full {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background:
+    radial-gradient(900px 600px at 20% 0%, rgba(255, 255, 255, 0.16), transparent 60%),
+    linear-gradient(150deg, color-mix(in srgb, var(--accent) 85%, #000) 0%, color-mix(in srgb, var(--accent) 45%, #5856d6) 55%, #17123a 100%);
+  animation: focus-in 260ms var(--ease-out) both;
+}
+@keyframes focus-in {
+  from {
+    opacity: 0;
+  }
+}
+.focus-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    radial-gradient(900px 600px at 20% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
+    linear-gradient(150deg, #2fb36b 0%, #1f9fb5 60%, #0f3d5c 100%);
+  transition: opacity 900ms ease;
+}
+.focus-full.break .focus-bg {
+  opacity: 1;
+}
+.focus-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s8);
+  width: 100%;
+  height: 100%;
+  animation: focus-rise 420ms var(--ease-out) 340ms both;
+}
+@keyframes focus-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+.focus-full.closing {
+  animation: focus-out 240ms var(--ease-out) 180ms both;
+  pointer-events: none;
+}
+.focus-full.closing .focus-inner,
+.focus-full.closing .log-card {
+  animation: focus-sink 180ms var(--ease-out) both;
+}
+@keyframes focus-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes focus-sink {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+.focus-close {
+  position: absolute;
+  top: 30px;
+  right: 28px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  transition: transform var(--d-press) var(--ease-out);
+}
+.focus-close:active {
+  transform: scale(0.94);
+}
+.focus-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 7px var(--s4);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  /* text over a coloured, changing backdrop: heavier weight, a touch more tracking */
+  letter-spacing: 0.005em;
+}
+.focus-chip .dot {
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+.focus-phase {
+  margin-bottom: var(--s1);
+  font-size: var(--t-callout);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.focus-clock {
+  font-family: var(--font-round);
+  font-size: 6rem;
+  line-height: 1;
+  font-weight: 200;
+  letter-spacing: -0.035em;
+}
+.focus-ends {
+  margin-top: var(--s2);
+  opacity: 0.75;
+}
+.focus-note {
+  max-width: 560px;
+  font-size: 1rem;
+  text-align: center;
+  opacity: 0.85;
+}
+.btn-circle.glass {
+  width: 52px;
+  height: 52px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.play-button.glass {
+  width: 84px;
+  height: 84px;
+  background: #fff;
+  color: color-mix(in srgb, var(--accent) 80%, #000);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.focus-full.break .play-button.glass {
+  color: #1f9f6b;
+}
+.focus-foot {
+  position: absolute;
+  bottom: 28px;
+  font-size: var(--t-callout);
+  opacity: 0.7;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-circle.glass:hover,
+  .focus-close:hover {
+    background: rgba(255, 255, 255, 0.26);
+  }
+}
+
+/* end-of-session card, on the same backdrop */
+.focus-full.log {
+  overflow-y: auto;
+  padding: var(--s10) var(--s5);
+  justify-content: safe center;
+}
+.log-card {
+  position: relative;
+  width: min(560px, 100%);
+  padding: var(--s6) var(--s8) var(--s4);
+  border-radius: var(--r-xl);
+  background: var(--elevated);
+  color: var(--label);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  transition:
+    opacity var(--d-modal) var(--ease-out),
+    transform var(--d-modal) var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.log-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: var(--s5);
+  text-align: center;
+}
+.log-head h2 {
+  font-size: var(--t-title);
+  line-height: var(--t-title-lh);
+  letter-spacing: var(--t-title-ls);
+  font-weight: 700;
+}
+.log-head p {
+  color: var(--label-3);
+}
+.log-check {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: var(--s2);
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+.log-card .hint-line {
+  margin-top: var(--s3);
+}

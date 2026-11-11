@@ -1,0 +1,84 @@
+/* Weekly review with Claude (Statistiche › Revisione). Imported, in order, by app.css. */
+
+.review-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.review-error {
+  color: var(--red);
+  font-weight: 500;
+}
+.review-paste {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+}
+.review-paste textarea {
+  height: auto;
+  padding: var(--s2);
+}
+.review-data summary,
+.review-old summary {
+  cursor: default;
+  font-weight: 500;
+  color: var(--label-2);
+}
+.review-data pre {
+  max-height: 320px;
+  margin-top: var(--s2);
+  padding: var(--s3);
+  overflow: auto;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: var(--t-callout);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--label-2);
+  user-select: text;
+}
+.review-text {
+  max-width: 68ch;
+  line-height: 1.55;
+  user-select: text;
+}
+.review-text h4 {
+  margin: var(--s4) 0 var(--s1);
+  font-size: var(--t-headline);
+  font-weight: 600;
+}
+.review-text h4:first-child {
+  margin-top: 0;
+}
+.review-text p {
+  margin: var(--s1) 0;
+}
+.review-text ul {
+  margin: var(--s1) 0;
+  padding-left: 1.2em;
+}
+.review-text li {
+  padding: 2px 0;
+}
+.review-old {
+  padding: var(--s3) var(--s4);
+  border-bottom: 0.5px solid var(--separator);
+}
+.review-old:last-child {
+  border-bottom: 0;
+}
+.review-old summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.review-old .review-text {
+  margin-top: var(--s3);
+}

@@ -5,7 +5,7 @@ Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); da
 ## Come si compila e si prova
 
 - Node **non** è nel PATH: sta in `~/.craft-node`. Prima di ogni comando: `export PATH="$HOME/.craft-node/bin:$PATH"`.
-- Controllo dei tipi: `npx tsc --noEmit`
+- Controllo dei tipi: `npx tsc --noEmit`. Test dei calcoli: `npm test` (Vitest, `src/lib/__tests__/`); girano anche dentro `npm run build` e `npm run web`. Ogni nuovo calcolo in `stats`, `insights` o `plan` va coperto da un test.
 - Anteprima nel browser: config `academic-weapon` in `.claude/launch.json` (Vite su porta 5174). Nel browser i suoni sono sintetizzati e le funzioni native (schermo intero, barra dei menu, backup) non fanno nulla.
 - App per Mac: `npm run desktop` → build Vite + pacchetto Electron in `Academic Weapon.app` (in questa cartella). Prima chiudere l'app aperta: `osascript -e 'quit app "Academic Weapon"'`, poi riaprirla con `open "Academic Weapon.app"`.
 - I dati veri dell'utente stanno nel localStorage dell'app Electron (`~/Library/Application Support/Academic Weapon`), chiave `aw:data`. Nell'anteprima del browser si possono usare dati finti senza toccarli.
@@ -13,7 +13,7 @@ Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); da
 ## Versione web beta (sincronizzata con l'app Mac)
 
 - Stesso codice, due target: `npm run desktop` (Mac) e `npm run web` (pagina unica in `dist-web/academic-weapon.html`, `VITE_TARGET=web` da `.env.web`). `npm run release` li fa entrambi.
-- Pubblicata come Artifact: https://claude.ai/artifact/832KQJA8oS2jQR7sfFhNCt (capabilities `downloads: true`, `comments: {composer_only: true}`).
+- Pubblicata come Artifact: https://claude.ai/artifact/832KQJA8oS2jQR7sfFhNCt (capabilities `downloads: true`, `comments: {composer_only: true}`, `sample: {}` per la revisione con Claude).
 - **Versione pubblica senza login**: https://lexsev87.github.io/academic-weapon/ (repository pubblico `lexsev87/academic-weapon`, GitHub Pages). Il flusso `.github/workflows/pages.yml` la ricostruisce e ripubblica a ogni push su `main`.
 - **Dopo ogni modifica all'app**: `npm run release` (app Mac + pagina claude.ai), ripubblicare `dist-web/academic-weapon.html` sull'Artifact (Artifact tool con `url`, senza `icon` né `capabilities`), poi commit e push su `main` per aggiornare il sito pubblico. Chi ha la pagina aperta riceve l'aggiornamento da solo.
 - I commit sono firmati con l'indirizzo anonimo GitHub (`git config user.email` locale): non usare altre email, il repository è pubblico.
@@ -21,16 +21,18 @@ Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); da
 
 ## Struttura
 
-- `src/lib/store.ts` – modello dati (`UserData`: settings, semesters, subjects, activities, sessions, timer; ogni sessione ha esame **e** attività, più `breakSec`), salvataggio in `localStorage['aw:data']`, `normalize()` migra i salvataggi vecchi. Ogni nuovo campo va aggiunto ai default **e** gestito in `normalize`.
+- `src/lib/store.ts` – modello dati (`UserData`: settings, semesters, subjects, activities, sessions, reviews, timer; ogni sessione ha esame **e** attività, `breakSec`, `pauses`/`pausedSec`; ogni esame ha `nextStep`), salvataggio in `localStorage['aw:data']`, `normalize()` migra i salvataggi vecchi. Ogni nuovo campo va aggiunto ai default **e** gestito in `normalize`. **Rete di sicurezza**: un salvataggio illeggibile non viene mai sovrascritto: finisce in `aw:data:broken`, si ripristina la copia buona del giorno (`aw:data:prev`) e `Notices` avvisa l'utente; lo stesso se la scrittura fallisce.
 - `src/lib/stats.ts` – calcoli: totali, obiettivi (`goalFor`, blocchi), libretto (`career`: medie su qualsiasi scala, base di laurea /110 solo per i trentesimi), ritmo per esame (`pacePerDay`).
-- `src/lib/insights.ts` – periodo di monitoraggio (`trackingPeriod`: date nelle impostazioni o anno accademico 1 set–31 ago), riepilogo del periodo (obiettivo a oggi e totale, progresso studio vs tempo, ritmo attuale vs necessario), `rangeInsights` per giorno/settimana/mese, `trendSeries` (studiato meno obiettivo, cumulato), `byActivity`, `pivot` (tabelle incrociate), `subjectInsights` (scheda esame).
+- `src/lib/insights.ts` – periodo di monitoraggio (`trackingPeriod(data)`: parte dalla **prima sessione** dell'anno accademico se non c'è una data impostata), `periodSummary` (ritardo e ritmo giudicati sulle **ultime 4 settimane**, `RECENT_DAYS`; ritmo previsto = media degli obiettivi delle settimane a venire), `focusInsights` (concentrazione per orario, attività, ordine del blocco, pause), `rangeInsights` per giorno/settimana/mese, `trendSeries` (studiato meno obiettivo, cumulato), `byActivity`, `pivot` (tabelle incrociate), `subjectInsights` (scheda esame).
+- `src/lib/plan.ts` – `dayPlan`: divide i blocchi di oggi tra gli esami aperti (quanto serve per giorno di studio fino all'appello) e segnala se gli esami chiedono più di quanto prevedono gli obiettivi.
+- `src/lib/review.ts` – revisione settimanale con Claude: `reviewData` (il testo esatto che viene inviato, mostrato all'utente), istruzioni, canali (`mac`: chiave API nel Portachiavi, chiamata dal processo principale Electron con `@anthropic-ai/sdk`, modello `claude-opus-5-5` con `fallbacks: "default"`; `claude.ai`: capability `sample` sull'account di chi guarda; sito pubblico: solo copia e incolla).
 - `src/lib/timer.ts` – motore del timer, flusso pomodoro (fine blocco → scheda di fine sessione `pending` → pausa), stato della vista a schermo intero (`setFocusView`).
 - `src/lib/native.ts` – ponte verso macOS (`window.aw`, definito in `desktop/preload.cjs`): suoni di sistema, timer nella barra dei menu, schermo intero, rimbalzo nel Dock, backup.
 - `src/lib/backup.ts` – backup automatico settimanale (solo app Mac).
-- `src/pages/app/` – pagine: `Shell` (finestra, barra laterale, ⌘1–7, nella barra in alto pillola del timer e "+ Sessione"), `Dashboard` (Oggi: obiettivi, ritmo, andamento, distribuzione per esame e attività), `TimerPage` (Focus), `FocusOverlay` (schermo intero + scheda di fine sessione), `SessionsPage` (registrazione a mano + storico con filtri, selezione multipla, tabella/schede), `Sessions` (`SessionForm` con inizio/fine/pausa condiviso, `SessionModal`, elenco, CSV), `CalendarPage` (giorno/settimana/mese/elenco + riepilogo del periodo visibile), `ExamsPage` + `ExamDetail` (scheda di ogni esame), `StatsPage` (Grafici / Tabelle con `PivotTables`), `SettingsPage` (anche attività e periodo di monitoraggio), `Setup`.
-- `src/components/StatLine.tsx` – riga di numeri del periodo sotto i titoli; `Charts.tsx` ha anche `TrendChart`, `Donut`, `GoalBars`.
+- `src/pages/app/` – pagine: `Shell` (finestra, barra laterale, ⌘1–7, nella barra in alto pillola del timer e "+ Sessione"), `Dashboard` (Oggi, volutamente corta: obiettivo del giorno, **piano del giorno** con "Studia", appelli, sessioni recenti), `TimerPage` (Focus), `FocusOverlay` (schermo intero + scheda di fine sessione), `SessionsPage` (registrazione a mano + storico con filtri, selezione multipla, tabella/schede), `Sessions` (`SessionForm` con inizio/fine/pausa condiviso, `SessionModal`, elenco, CSV), `CalendarPage` (giorno/settimana/mese/elenco + riepilogo del periodo visibile), `ExamsPage` + `ExamDetail` (scheda di ogni esame), `StatsPage` (Andamento = `PeriodPanel` + `FocusInsights`, Grafici, Tabelle = `PivotTables`, Revisione = `ReviewPanel`), `SettingsPage` (anche attività, periodo di monitoraggio, giorni liberi, Claude), `Setup`.
+- `src/components/Notices.tsx` – avvisi sui dati (salvataggio illeggibile, scrittura fallita, promemoria di backup fuori dall'app Mac); `Charts.tsx` ha anche `TrendChart`, `Donut`, `GoalBars`.
 - `src/components/Prefs.tsx` – blocchi di impostazioni condivisi da Setup e Impostazioni (percorso, obiettivi, suoni).
-- `src/styles/` – `base.css` (token colore, tema chiaro/scuro, accenti macOS) e `app.css`.
+- `src/styles/` – `base.css` (token colore, tema chiaro/scuro, accenti macOS); `app.css` è solo l'elenco ordinato degli `@import` dei file per area (`shell`, `foundation`, `controls`, `today`, `focus`, `calendar`, `charts`, `responsive`, `sessions`, `period`, `plan`, `review`…). L'ordine conta: le regole responsive vengono dopo i layout che adattano.
 - `desktop/` – shell Electron: `main.cjs` (finestra, protocollo `app://`, IPC), `preload.cjs`, `pack.mjs`.
 - `design/logo-source.webp` – logo (drago con occhiali che legge un libro e sputa formule, in biblioteca), unica fonte. `./scripts/make-icons.sh` lo ritaglia nella forma arrotondata macOS sulla griglia 824/1024 con ombra e genera `src/assets/logo.png` (256 px, interfaccia), `public/icon.png` (favicon) e `desktop/icon.icns`. Per cambiare logo: sostituire il file sorgente e rilanciare lo script.
 
@@ -44,6 +46,10 @@ Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); da
 - **Schermo intero**: usare `setSimpleFullScreen` (istantaneo) nascosto dietro una dissolvenza; **non** lo schermo intero nativo (scorre in un altro Spazio) e **non** animare le dimensioni della finestra o `clip-path` (scatta). Animare solo `opacity`/`transform`.
 - **Electron e zone trascinabili**: le zone `-webkit-app-region: drag` intercettano i clic anche sotto gli overlay. Niente zone trascinabili sopra pulsanti; con l'overlay aperto, la classe `html.focus-open` le disattiva.
 - Prima di dire che qualcosa funziona nell'app per Mac, provarla davvero (anteprima nel browser ≠ finestra Electron).
+- **Obiettivi che non scoraggiano**: niente debito cumulato da inizio anno. Ritardo e ritmo si guardano sulle ultime 4 settimane; i giorni liberi (`settings.daysOff`) non hanno obiettivo; il periodo parte dalla prima sessione.
+- **Oggi resta corta**: risponde a "cosa faccio adesso". Le analisi stanno in Statistiche.
+- **Claude solo per la revisione settimanale**, spenta di default e mai automatica: i dati partono solo quando l'utente preme il pulsante, e la pagina mostra cosa invia. Piano, ritmo e analisi della concentrazione sono calcoli in codice, non richieste a Claude. Niente chat nell'app. La chiave API non entra mai in `aw:data`, nei backup o nella pagina.
+- Backup automatico **giornaliero** nell'app Mac (ultimi 30).
 
 ## Sistema di design (skill apple-design, emil-design-eng, animate)
 
@@ -54,5 +60,6 @@ Tracker dello studio personale di Alessio. Nasce come app per Mac (Electron); da
 
 ## Idee messe da parte
 
-- Piano settimanale che distribuisce i blocchi tra gli esami in base agli appelli.
+- Piano settimanale completo (oggi c'è il piano del giorno).
+- Salvare quanto è durata davvero ogni pausa (oggi c'è solo il richiamo e il contatore a schermo).
 - Riepilogo mensile esportabile in PDF.

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Ring } from '../../components/Charts';
 import { IconCheck, IconPause, IconPlay, IconReset, IconSkip, IconStop, IconX } from '../../components/Icons';
 import { ActivitySelect, confirmDialog, Stepper, SubjectSelect } from '../../components/UI';
-import { NO_SUBJECT_COLOR, type UserData } from '../../lib/store';
+import { NO_SUBJECT_COLOR, saveSubject, type UserData } from '../../lib/store';
 import { FocusRating } from './Sessions';
 import { blocksDone, fmtBlocks, fmtClock, fmtDur, fmtGoal, fmtTime, goalFor, startOfDay, sumRange } from '../../lib/stats';
 import { discardLog, elapsed, finishAndSave, pause, PHASE_LABEL, resetTimer, saveLog, setFocusView, skipPhase, start, targetMs, useNow } from '../../lib/timer';
@@ -72,7 +72,7 @@ export function FocusOverlay({ data, closing }: { data: UserData; closing: boole
               </span>
             )}
           </Ring>
-          {!isBreak && t.note && <div className="focus-note">{t.note}</div>}
+          {!isBreak && (t.note || subject?.nextStep) && <div className="focus-note">{t.note || `Riparti da: ${subject!.nextStep}`}</div>}
           <div className="transport">
             <button className="btn-circle glass" onClick={resetTimer} aria-label="Azzera" title="Azzera" disabled={el === 0}>
               <IconReset />
@@ -109,9 +109,19 @@ function SessionLog({ data }: { data: UserData }) {
   const [note, setNote] = useState(t.note);
   const [focus, setFocus] = useState(0);
   const subject = data.subjects.find((x) => x.id === subjectId);
+  // "Where to pick up next time" belongs to the exam: it follows the exam picker.
+  const [next, setNext] = useState(subject?.nextStep ?? '');
+  const [nextFor, setNextFor] = useState(subjectId);
+  if (nextFor !== subjectId) {
+    setNextFor(subjectId);
+    setNext(subject?.nextStep ?? '');
+  }
   const brk = t.mode === 'pomodoro' && p.thenBreak;
   const nextBreak = (t.cycle + 1) % data.settings.longEvery === 0 ? data.settings.longMin : data.settings.shortMin;
-  const save = (withBreak: boolean) => saveLog({ subjectId: subjectId || null, activityId: activityId || null, dur: min * 60, note, focus }, withBreak);
+  const save = (withBreak: boolean) => {
+    if (subject && next.trim() !== subject.nextStep) saveSubject({ ...subject, nextStep: next.trim() });
+    saveLog({ subjectId: subjectId || null, activityId: activityId || null, dur: min * 60, note, focus }, withBreak);
+  };
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -129,7 +139,8 @@ function SessionLog({ data }: { data: UserData }) {
         </span>
         <h2 id="log-title">Sessione completata</h2>
         <p className="tnum">
-          {fmtTime(p.start)} – {fmtTime(p.start + p.dur * 1000)} · {fmtDur(p.dur)} di studio
+          {fmtTime(p.start)} · {fmtDur(p.dur)} di studio
+          {p.pauses ? ` · ${p.pauses} ${p.pauses === 1 ? 'pausa' : 'pause'}${(p.pausedSec ?? 0) >= 60 ? ` (${fmtDur(p.pausedSec ?? 0)})` : ''}` : ''}
         </p>
       </header>
       <div className="form-grid">
@@ -151,6 +162,12 @@ function SessionLog({ data }: { data: UserData }) {
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
+        {subject && (
+          <label className="field full">
+            <span className="field-label">Da dove riparti la prossima volta?</span>
+            <input className="in" value={next} placeholder="Es. esercizio 9, poi cap. 6" onChange={(e) => setNext(e.target.value)} />
+          </label>
+        )}
         <div className="field full">
           <span className="field-label">Quanto eri concentrato?</span>
           <FocusRating value={focus} onChange={setFocus} />

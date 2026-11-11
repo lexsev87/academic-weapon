@@ -1,5 +1,5 @@
 // Academic Weapon for macOS: serves the built tracker from a private app:// address and opens it in its own window.
-const { app, BrowserWindow, protocol, net, shell, Menu, Tray, nativeImage, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, protocol, net, shell, Menu, Tray, nativeImage, ipcMain, dialog, safeStorage } = require('electron');
 const { execFile } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -102,11 +102,72 @@ ipcMain.handle('aw:backup', (_e, json, dir) => {
     const p = (n) => String(n).padStart(2, '0');
     const file = path.join(target, `academic-weapon-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`);
     fs.writeFileSync(file, json);
-    const old = fs.readdirSync(target).filter((f) => BACKUP_RE.test(f)).sort().slice(0, -12);
+    const old = fs.readdirSync(target).filter((f) => BACKUP_RE.test(f)).sort().slice(0, -30);
     old.forEach((f) => fs.rmSync(path.join(target, f)));
     return { ok: true, dir: target, file };
   } catch (err) {
     return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+// Claude (weekly review). The API key is encrypted with the Mac's Keychain (safeStorage) and kept
+// outside the app's data, so it never ends up in a backup or an export. Requests go out from here.
+const keyFile = () => path.join(app.getPath('userData'), 'claude-key.bin');
+function readKey() {
+  try {
+    if (!fs.existsSync(keyFile()) || !safeStorage.isEncryptionAvailable()) return '';
+    return safeStorage.decryptString(fs.readFileSync(keyFile()));
+  } catch {
+    return '';
+  }
+}
+ipcMain.handle('aw:claude-key-status', () => {
+  const k = readKey();
+  return { set: !!k, hint: k ? `…${k.slice(-4)}` : '' };
+});
+ipcMain.handle('aw:claude-key-set', (_e, key) => {
+  const k = String(key).trim();
+  if (!k) return { ok: false, error: 'Chiave vuota' };
+  if (!safeStorage.isEncryptionAvailable()) return { ok: false, error: 'Il Portachiavi non è disponibile' };
+  try {
+    fs.writeFileSync(keyFile(), safeStorage.encryptString(k), { mode: 0o600 });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+ipcMain.handle('aw:claude-key-clear', () => {
+  fs.rmSync(keyFile(), { force: true });
+});
+ipcMain.handle('aw:claude-ask', async (_e, system, prompt) => {
+  const apiKey = readKey();
+  if (!apiKey) return { ok: false, code: 'no-key' };
+  const sdk = require('@anthropic-ai/sdk');
+  const Anthropic = sdk.default || sdk;
+  try {
+    const client = new Anthropic({ apiKey });
+    // If the model declines a request, the API retries it on the recommended fallback model.
+    const res = await client.beta.messages.create({
+      model: 'claude-opus-5-5',
+      max_tokens: 16000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort: 'medium' },
+      system: String(system),
+      messages: [{ role: 'user', content: String(prompt) }],
+    });
+    if (res.stop_reason === 'refusal') return { ok: false, code: 'refused' };
+    const text = res.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
+      .trim();
+    return text ? { ok: true, text } : { ok: false, code: 'other', message: 'Risposta vuota' };
+  } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return { ok: false, code: 'auth' };
+    if (err instanceof Anthropic.RateLimitError) return { ok: false, code: 'rate' };
+    if (err instanceof Anthropic.APIConnectionError) return { ok: false, code: 'network' };
+    if (err instanceof Anthropic.APIError) return { ok: false, code: 'other', message: `${err.status ?? ''} ${err.message}`.trim() };
+    return { ok: false, code: 'other', message: String(err && err.message ? err.message : err) };
   }
 });
 ipcMain.handle('aw:choose-folder', async (e) => {

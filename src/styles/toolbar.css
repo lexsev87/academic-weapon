@@ -1,0 +1,77 @@
+/* Toolbar actions: timer pill and "+ Sessione". Imported, in order, by app.css. */
+
+/* ---------- toolbar actions: timer pill and "+ Sessione" ---------- */
+.toolbar-actions {
+  grid-column: 3;
+  justify-self: end;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  -webkit-app-region: no-drag;
+}
+.timer-pill {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 var(--s3) 0 2px;
+  border-radius: 14px;
+  background: var(--control);
+  box-shadow: 0 0 0 0.5px var(--separator-strong), 0 0.5px 1px rgba(0, 0, 0, 0.08);
+  animation: pill-in var(--d-base) var(--ease-out);
+}
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+.timer-pill-toggle {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  transition: transform var(--d-fast) var(--ease-out);
+}
+.timer-pill[data-state='break'] .timer-pill-toggle {
+  background: var(--green);
+}
+.timer-pill[data-state='paused'] .timer-pill-toggle {
+  background: var(--fill-2);
+  color: var(--label);
+}
+.timer-pill-toggle:active {
+  transform: scale(0.92);
+}
+.timer-pill-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: var(--s2);
+  color: var(--label);
+  text-decoration: none;
+  font-size: var(--t-callout);
+}
+.timer-pill-label {
+  max-width: 140px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--label-2);
+}
+.timer-pill-clock {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.toolbar-add {
+  border-radius: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .timer-pill {
+    animation: none;
+  }
+}

@@ -1,0 +1,243 @@
+/* Narrow windows, phone layout, reduced motion. Imported, in order, by app.css. */
+
+/* ---------- narrow windows ---------- */
+@media (max-width: 1180px) {
+  .cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1020px) {
+  .cols-main,
+  .cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page {
+    padding-left: max(var(--s6), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--s6), env(safe-area-inset-right, 0px));
+  }
+  .today-main {
+    gap: var(--s5);
+    padding: var(--s5);
+  }
+  .week {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .week-total {
+    display: none;
+  }
+}
+
+/* ---------- phone width (the web beta): sidebar becomes an iOS-style tab bar ---------- */
+@media (max-width: 720px) {
+  .shell {
+    flex-direction: column;
+  }
+  .sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    width: auto;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+    background: var(--material-bar);
+    backdrop-filter: var(--material-blur);
+    -webkit-backdrop-filter: var(--material-blur);
+    box-shadow: inset 0 0.5px 0 var(--separator);
+    overflow: visible;
+  }
+  .sidebar-titlebar,
+  .brand,
+  .sidebar-group,
+  .side-timer,
+  .feedback-item {
+    display: none;
+  }
+  .sidebar-list {
+    display: flex;
+    flex: 6;
+  }
+  .sidebar-list > div {
+    flex: 1;
+    min-width: 0;
+  }
+  .sidebar-foot {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .nav-item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    height: 46px;
+    padding: 0;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--label-3);
+  }
+  .nav-item[aria-current='page'] {
+    background: none;
+    color: var(--accent);
+  }
+  .nav-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+  }
+  .nav-item:has(.nav-short) .nav-label {
+    display: none;
+  }
+  .nav-short {
+    display: inline;
+  }
+  .content {
+    min-height: 0;
+  }
+  .toolbar {
+    display: none;
+  }
+  .page {
+    padding-top: var(--s6);
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    gap: var(--s5);
+  }
+  .page-head {
+    align-items: flex-start;
+  }
+  .page-actions {
+    width: 100%;
+  }
+  .page-actions .seg {
+    flex: 1;
+  }
+  .today-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s4);
+    padding: var(--s5) var(--s4);
+  }
+  .today-headline {
+    font-size: var(--t-title);
+  }
+  .week {
+    padding: var(--s3) var(--s2);
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .in.inline-field {
+    width: 50%;
+  }
+  .row-unit {
+    min-width: 0;
+  }
+  .rating {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .rating button {
+    font-size: 0.5625rem;
+  }
+  .cal-filter {
+    width: 100%;
+  }
+  .tg-head,
+  .tg-allday,
+  .tg-grid {
+    grid-template-columns: 40px repeat(var(--days, 7), minmax(0, 1fr)) !important;
+  }
+  .wd {
+    display: none;
+  }
+  .mg-grid {
+    grid-auto-rows: minmax(72px, 1fr);
+  }
+  .mg-ev {
+    font-size: 0.5625rem;
+  }
+  .hbar {
+    grid-template-columns: minmax(0, 110px) 1fr auto;
+  }
+  .modal {
+    padding: var(--s4);
+  }
+  .focus-inner .ring-wrap {
+    width: min(380px, 82vw) !important;
+    height: auto !important;
+    aspect-ratio: 1;
+  }
+  .focus-inner .ring-wrap svg {
+    width: 100%;
+    height: 100%;
+  }
+  .focus-clock {
+    font-size: 4.25rem;
+  }
+  .log-card {
+    padding: var(--s5) var(--s4) var(--s3);
+  }
+  .setup {
+    padding: var(--s5) max(16px, env(safe-area-inset-left, 0px));
+  }
+  .setup-card {
+    padding: var(--s6) var(--s4) var(--s4);
+  }
+}
+
+/* ---------- reduced motion: keep fades that aid comprehension, drop movement ---------- */
+@keyframes fade-only {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .focus-inner,
+  .setup-step,
+  .setup-step[data-dir='back'] {
+    animation-name: fade-only;
+  }
+  .focus-full.closing .focus-inner,
+  .focus-full.closing .log-card {
+    animation-name: focus-out;
+  }
+  .modal,
+  .log-card,
+  .setup-card {
+    @starting-style {
+      transform: none;
+    }
+  }
+  .modal-back[data-leaving] .modal {
+    transform: none;
+  }
+  .toast {
+    @starting-style {
+      transform: translate(-50%, 0);
+    }
+  }
+  .toast[data-leaving] {
+    transform: translate(-50%, 0);
+  }
+  .seg-thumb,
+  .switch::after {
+    transition-duration: 0ms;
+  }
+  .btn:active,
+  .chip:active,
+  .pressable:active,
+  .btn-circle:active,
+  .play-button:active,
+  .list-add:active,
+  .side-timer:active,
+  .rating button:active,
+  .swatches button:active,
+  .focus-close:active,
+  .ev:active {
+    transform: none;
+  }
+}

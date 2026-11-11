@@ -4,10 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vitest run && vite build",
     "desktop": "npm run build && cd desktop && npm run pack",
-    "web": "tsc --noEmit && vite build --mode web && node scripts/build-web.mjs",
-    "release": "npm run desktop && npm run web"
+    "web": "tsc --noEmit && vitest run && vite build --mode web && node scripts/build-web.mjs",
+    "release": "npm run desktop && npm run web",
+    "test": "vitest run"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -18,6 +19,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
   }
 }

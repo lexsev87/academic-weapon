@@ -1,0 +1,34 @@
+/* Statistics range picker and pivot tables. Imported, in order, by app.css. */
+
+/* ---------- statistics: range picker and pivot tables ---------- */
+.stats-range {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: calc(var(--s2) * -1);
+}
+.pivot-presets {
+  margin-bottom: var(--s3);
+  overflow-x: auto;
+}
+.pivot-presets .seg {
+  min-width: 520px;
+}
+.data-table.pivot td,
+.data-table.pivot th {
+  padding-inline: var(--s3);
+  white-space: nowrap;
+}
+.data-table.pivot .strong {
+  font-weight: 600;
+}
+.pivot-corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+.data-table.pivot td.pivot-corner {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

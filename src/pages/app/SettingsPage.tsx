@@ -1,14 +1,15 @@
-import { useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { IconDownload, IconUpload } from '../../components/Icons';
 import { confirmDialog, PageHeader, Seg, Stepper, toast } from '../../components/UI';
 import { GoalFields, ProgramFields, Row, SoundFields, Toggle } from '../../components/Prefs';
-import { chooseFolder, isMacApp, reveal } from '../../lib/native';
+import { chooseFolder, claudeKeyClear, claudeKeySet, claudeKeyStatus, isMacApp, reveal } from '../../lib/native';
+import { reviewChannel } from '../../lib/review';
 import { runBackup } from '../../lib/backup';
 import { useFeedback } from '../../lib/feedback';
 import { inClaudeViewer, isWeb, requestNotifications, saveFile } from '../../lib/platform';
 import { navigate } from '../../lib/router';
 import { ACCENTS, setAccent, setThemePref, useAccent, useThemePref, type ThemePref } from '../../lib/theme';
-import { ACTIVITY_COLORS, deleteActivity, getData, replaceData, resetAll, saveActivity, setSettings, uid, update, type Activity, type UserData } from '../../lib/store';
+import { ACTIVITY_COLORS, deleteActivity, getData, replaceData, resetAll, saveActivity, setSettings, uid, update, type Activity, type DayOff, type UserData } from '../../lib/store';
 import { IconPlus, IconTrash } from '../../components/Icons';
 import { trackingPeriod } from '../../lib/insights';
 import { dayKey } from '../../lib/stats';
@@ -22,7 +23,10 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
 
   const exportJson = async () => {
     const r = await saveFile(`academic-weapon-backup-${dayKey(Date.now())}.json`, JSON.stringify(getData(), null, 2), 'application/json');
-    if (r === 'saved') toast(isWeb ? 'Backup salvato' : 'Backup salvato in Download');
+    if (r === 'saved') {
+      setSettings({ lastExportAt: Date.now() });
+      toast(isWeb ? 'Backup salvato' : 'Backup salvato in Download');
+    }
     else if (r === 'unavailable') toast('Il salvataggio di file non è disponibile qui');
   };
   const importJson = async (f: File) => {
@@ -78,7 +82,7 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
 
         <Group
           title="Periodo di monitoraggio"
-          foot="Gli obiettivi, il ritmo e l’andamento si calcolano su questo periodo. Lascia vuoto per usare l’anno accademico (1 settembre – 31 agosto)."
+          foot="Obiettivi e ritmo si calcolano su questo periodo. Senza una data d’inizio parte dalla tua prima sessione dell’anno accademico, così i mesi prima non contano come studio mancato. Senza una data di fine arriva al 31 agosto."
         >
           <Row label="Inizio">
             <input className="in inline-field" type="date" value={s.trackStart} max={s.trackEnd || undefined} onChange={(e) => setSettings({ trackStart: e.target.value })} />
@@ -89,6 +93,25 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
           <Row label="In uso">
             <span className="row-value tnum">{periodText(data)}</span>
           </Row>
+        </Group>
+
+        <Group title="Giorni liberi" foot="Vacanze, viaggi, giorni d’esame: in questi giorni non c’è obiettivo e non si accumula ritardo.">
+          {[...s.daysOff]
+            .sort((x, y) => x.from.localeCompare(y.from))
+            .map((d) => (
+              <div className="row-item dayoff-row" key={d.id}>
+                <input className="in" type="date" value={d.from} aria-label="Dal" onChange={(e) => e.target.value && saveDayOff(s.daysOff, { ...d, from: e.target.value, to: d.to < e.target.value ? e.target.value : d.to })} />
+                <span className="row-hint">–</span>
+                <input className="in" type="date" value={d.to} min={d.from} aria-label="Al" onChange={(e) => e.target.value && saveDayOff(s.daysOff, { ...d, to: e.target.value })} />
+                <input className="in dayoff-label" defaultValue={d.label} placeholder="Es. vacanze di Natale" aria-label="Nome" onBlur={(e) => e.target.value !== d.label && saveDayOff(s.daysOff, { ...d, label: e.target.value.trim() })} />
+                <button className="btn icon plain" aria-label="Elimina" onClick={() => setSettings({ daysOff: s.daysOff.filter((x) => x.id !== d.id) })}>
+                  <IconTrash />
+                </button>
+              </div>
+            ))}
+          <button className="list-add" onClick={() => setSettings({ daysOff: [...s.daysOff, { id: uid(), from: dayKey(Date.now()), to: dayKey(Date.now()), label: '' }] })}>
+            <IconPlus size={12} /> Aggiungi giorni liberi
+          </button>
         </Group>
 
         <Group title="Attività" foot="Il tipo di lavoro di ogni sessione: si sceglie nel timer, a fine sessione e quando registri a mano.">
@@ -105,6 +128,12 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
 
         <Group title="Durante lo studio">
           <Toggle label="Schermo intero all’avvio del timer" hint="Esc per uscire, F per rientrare" checked={s.fullscreenOnStart} onChange={(v) => setSettings({ fullscreenOnStart: v })} />
+          <Toggle
+            label="Richiamo se la pausa si allunga"
+            hint="Un secondo avviso se dopo la pausa non riparti"
+            checked={s.breakNudgeMin > 0}
+            onChange={(v) => setSettings({ breakNudgeMin: v ? 3 : 0 })}
+          />
           <Toggle
             label="Scheda di fine sessione"
             hint="Esame, note e concentrazione; salvandola parte la pausa"
@@ -158,9 +187,31 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
           </Row>
         </Group>
 
+        <Group
+          title="Claude"
+          foot={
+            reviewChannel() === 'mac'
+              ? 'La revisione settimanale invia ad Anthropic sessioni, note ed esami dell’ultima settimana, solo quando premi “Chiedi a Claude” in Statistiche › Revisione. Serve una chiave API (console.anthropic.com), a consumo: pochi centesimi a revisione. La chiave resta nel Portachiavi del Mac, fuori da backup ed esportazioni.'
+              : reviewChannel() === 'claude.ai'
+                ? 'La revisione settimanale invia a Claude sessioni, note ed esami dell’ultima settimana, solo quando premi “Chiedi a Claude” in Statistiche › Revisione, usando il tuo account Claude.'
+                : 'Su questo sito l’app non contatta Claude. In Statistiche › Revisione puoi copiare il riepilogo della settimana e incollarlo tu in una chat.'
+          }
+        >
+          {reviewChannel() ? (
+            <Toggle label="Revisione settimanale con Claude" hint="Spenta: nessun dato lascia questo dispositivo" checked={s.reviewEnabled} onChange={(v) => setSettings({ reviewEnabled: v })} />
+          ) : (
+            <Row label="Revisione settimanale" hint="Solo con copia e incolla">
+              <button className="btn" onClick={() => navigate('/statistiche')}>
+                Apri
+              </button>
+            </Row>
+          )}
+          {reviewChannel() === 'mac' && s.reviewEnabled && <ClaudeKeyRow />}
+        </Group>
+
         {isMacApp && (
-          <Group title="Backup automatico" foot="Una copia di tutti i dati ogni settimana; restano gli ultimi 12 backup.">
-            <Toggle label="Backup settimanale" checked={s.autoBackup} onChange={(v) => setSettings({ autoBackup: v })} />
+          <Group title="Backup automatico" foot="Una copia di tutti i dati ogni giorno in cui usi l’app; restano gli ultimi 30 backup.">
+            <Toggle label="Backup giornaliero" checked={s.autoBackup} onChange={(v) => setSettings({ autoBackup: v })} />
             <Row label="Cartella" hint={s.backupDir || 'Documenti › Academic Weapon Backup'}>
               <button className="btn" onClick={() => chooseFolder().then((dir) => dir && setSettings({ backupDir: dir }))}>
                 Cambia…
@@ -253,11 +304,50 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
 }
 
 /** System Settings–style group: caption above, rows in a rounded list, footnote below. */
+const saveDayOff = (list: DayOff[], d: DayOff) => setSettings({ daysOff: list.map((x) => (x.id === d.id ? d : x)) });
+
 const periodText = (data: UserData) => {
-  const { start, end } = trackingPeriod(data.settings);
+  const { start, end } = trackingPeriod(data);
   const f = (d: Date) => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
   return `${f(start)} – ${f(new Date(end.getTime() - 1))}`;
 };
+
+function ClaudeKeyRow() {
+  const [status, setStatus] = useState<{ set: boolean; hint: string } | null>(null);
+  const [key, setKey] = useState('');
+  useEffect(() => {
+    claudeKeyStatus().then(setStatus);
+  }, []);
+  const save = async () => {
+    const r = await claudeKeySet(key);
+    if (!r.ok) return toast(`Chiave non salvata: ${r.error ?? ''}`);
+    setKey('');
+    setStatus(await claudeKeyStatus());
+    toast('Chiave salvata nel Portachiavi');
+  };
+  if (status?.set)
+    return (
+      <Row label="Chiave API" hint={`Salvata nel Portachiavi (${status.hint})`}>
+        <button
+          className="btn destructive"
+          onClick={async () => {
+            await claudeKeyClear();
+            setStatus(await claudeKeyStatus());
+          }}
+        >
+          Rimuovi
+        </button>
+      </Row>
+    );
+  return (
+    <Row label="Chiave API" hint="Incollala qui: viene cifrata e non resta nella pagina">
+      <input className="in inline-field" type="password" autoComplete="off" value={key} placeholder="sk-ant-…" onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && key.trim() && save()} />
+      <button className="btn" disabled={!key.trim()} onClick={save}>
+        Salva
+      </button>
+    </Row>
+  );
+}
 
 function ActivityRow({ a, uses }: { a: Activity; uses: number }) {
   const nextColor = () => saveActivity({ ...a, color: ACTIVITY_COLORS[(ACTIVITY_COLORS.indexOf(a.color) + 1) % ACTIVITY_COLORS.length] });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconCalendar, IconCap, IconChart, IconChat, IconHome, IconList, IconPause, IconPlay, IconPlus, IconSettings, IconTimer } from '../../components/Icons';
 import { ConfirmHost, Toaster } from '../../components/UI';
+import { Notices } from '../../components/Notices';
 import { useFeedback } from '../../lib/feedback';
 import { Link, navigate } from '../../lib/router';
 import { NO_SUBJECT_COLOR, useData, type UserData } from '../../lib/store';
@@ -158,6 +159,7 @@ export function Shell({ path }: { path: string }) {
           </div>
         </div>
         <div className="page">
+          {data.settings.setupDone && <Notices data={data} />}
           <Page data={data} name={name || 'campione'} />
         </div>
       </main>

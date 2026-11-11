@@ -22,7 +22,7 @@ export function PivotTables({ data }: { data: UserData }) {
     writeStore('aw:pivot', p);
   };
   const def = PRESETS.find((p) => p.id === preset)!;
-  const { start, end } = trackingPeriod(data.settings);
+  const { start, end } = trackingPeriod(data);
   const tEnd = def.cols === 'week' ? new Date(Math.min(end.getTime(), Date.now() + 86400000)) : end;
   const t = pivot(data, def.rows, def.cols, start, tEnd);
   const val = (c: { sec: number; n: number }) => (metric === 'hours' ? c.sec : c.n);

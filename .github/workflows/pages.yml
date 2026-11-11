@@ -27,6 +27,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npx vitest run
       - run: npx vite build --mode web
       - uses: actions/upload-pages-artifact@v3
         with:

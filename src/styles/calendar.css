@@ -1,0 +1,311 @@
+/* Calendar grids. Imported, in order, by app.css. */
+
+/* ---------- calendar (Apple Calendar) ---------- */
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.cal-title {
+  font-weight: 400;
+}
+.cal-title b {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.cal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+.cal-filter {
+  width: 240px;
+}
+.cal-bar-actions {
+  display: flex;
+  gap: var(--s2);
+}
+.tg,
+.mg {
+  overflow: hidden;
+}
+.tg-head,
+.tg-allday,
+.tg-grid {
+  display: grid;
+}
+.tg-head,
+.tg-allday {
+  padding-right: 11px; /* matches the body's scrollbar */
+  box-shadow: inset 0 -0.5px 0 var(--separator);
+}
+.tg-day {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: var(--s3) var(--s1) var(--s2);
+}
+.wd {
+  font-size: var(--t-callout);
+  font-weight: 600;
+  color: var(--label-3);
+  text-transform: capitalize;
+}
+.tg-day .num {
+  min-width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 13px;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tg-day.today .wd {
+  color: var(--red);
+}
+.tg-day.today .num {
+  background: var(--red);
+  color: #fff;
+}
+.tot {
+  flex-basis: 100%;
+  min-height: 14px;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  text-align: center;
+  color: var(--accent);
+}
+.tg-allday {
+  min-height: 26px;
+}
+.tg-lbl {
+  padding: 6px var(--s2) 0 0;
+  font-size: 0.625rem;
+  color: var(--label-3);
+  text-align: right;
+}
+.tg-allday-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 2px;
+  box-shadow: inset 0.5px 0 0 var(--separator);
+}
+.ev-allday {
+  display: block;
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  color: #fff;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tg-body {
+  height: calc(100vh - 300px);
+  min-height: 380px;
+  overflow-y: scroll;
+}
+.tg-grid {
+  position: relative;
+  background-image: linear-gradient(to bottom, var(--separator) 0.5px, transparent 0.5px);
+  background-size: 100% 52px;
+}
+.tg-hours {
+  position: relative;
+}
+.tg-hours span {
+  position: absolute;
+  right: var(--s2);
+  transform: translateY(-50%);
+  font-size: 0.65625rem;
+  color: var(--label-3);
+  font-variant-numeric: tabular-nums;
+}
+.tg-col {
+  position: relative;
+  box-shadow: inset 0.5px 0 0 var(--separator);
+}
+.tg-col.today {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.ev {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 3px 6px 3px 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--ev) 18%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--ev);
+  color: color-mix(in srgb, var(--ev) 62%, var(--label));
+  font-size: var(--t-caption);
+  line-height: 1.25;
+  text-align: left;
+  transition: transform var(--d-press) var(--ease-out);
+}
+:root[data-appearance='dark'] .ev {
+  background: color-mix(in srgb, var(--ev) 30%, var(--surface));
+  color: color-mix(in srgb, var(--ev) 30%, #fff);
+}
+.ev:active {
+  transform: scale(0.98);
+}
+.ev b {
+  max-width: 100%;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ev.short {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-block: 1px;
+}
+.ev-time {
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ev-note {
+  opacity: 0.8;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.ev .bars {
+  margin-top: 2px;
+  color: var(--ev);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ev:hover {
+    z-index: 2;
+    background: color-mix(in srgb, var(--ev) 26%, var(--surface));
+  }
+  .mg-cell:hover {
+    background: var(--hover);
+  }
+}
+.now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--red);
+  pointer-events: none;
+}
+.now-line::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--red);
+}
+.mg-head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  box-shadow: inset 0 -0.5px 0 var(--separator);
+}
+.mg-head span {
+  padding: var(--s2) var(--s3);
+  font-size: var(--t-callout);
+  font-weight: 600;
+  color: var(--label-3);
+  text-align: right;
+  text-transform: capitalize;
+}
+.mg-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(104px, 1fr);
+}
+.mg-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 6px 18px;
+  border: 0;
+  background: none;
+  text-align: left;
+  box-shadow: inset -0.5px -0.5px 0 var(--separator);
+}
+.mg-cell.other .mg-num,
+.mg-cell.other .mg-items {
+  opacity: 0.4;
+}
+.mg-num {
+  align-self: flex-end;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-transform: capitalize;
+}
+.mg-cell.today .mg-num {
+  background: var(--red);
+  color: #fff;
+}
+.mg-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mg-ev {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--t-caption);
+  color: var(--label-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg-ev i {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+.mg-more {
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--label-3);
+}
+.mg-total {
+  position: absolute;
+  left: var(--s2);
+  bottom: 4px;
+  font-size: 0.65625rem;
+  font-weight: 700;
+  color: var(--accent);
+}

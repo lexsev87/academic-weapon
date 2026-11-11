@@ -1,0 +1,37 @@
+/* Settings groups. Imported, in order, by app.css. */
+
+/* ---------- settings (System Settings groups) ---------- */
+.settings {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s6);
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.group-title {
+  padding: 0 var(--s4);
+  font-size: var(--t-callout);
+  font-weight: 600;
+  color: var(--label-3);
+}
+.group-foot {
+  padding: 0 var(--s4);
+  font-size: var(--t-caption);
+  line-height: var(--t-caption-lh);
+  color: var(--label-3);
+}
+.row-block .group-foot,
+.setup-body .group-foot {
+  margin-top: var(--s2);
+  padding: 0 var(--s1);
+}
+.row-block .card.list.nested,
+.setup-body .card.list.nested {
+  margin-top: var(--s3);
+}

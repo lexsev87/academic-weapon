@@ -15,8 +15,9 @@ import { Metric, PageHeader, Section, Seg } from "../../components/UI";
 import type { UserData } from "../../lib/store";
 import { byActivity } from "../../lib/insights";
 import { readStore, writeStore } from "../../lib/platform";
-import { StatLine } from "../../components/StatLine";
 import { PivotTables } from "./PivotTables";
+import { PeriodPanel } from "./PeriodPanel";
+import { ReviewPanel } from "./ReviewPanel";
 import { FOCUS_LEVELS } from "./FocusOverlay";
 import {
   addDays,
@@ -32,14 +33,16 @@ import {
 } from "../../lib/stats";
 
 type Range = "7" | "30" | "90" | "365";
+type Tab = "trend" | "charts" | "tables" | "review";
 
 export function StatsPage({ data }: { data: UserData; name: string }) {
   const [range, setRange] = useState<Range>("30");
   const [table, setTable] = useState(false);
-  const [tab, setTabState] = useState<"charts" | "tables">(() =>
-    readStore("aw:stats-tab") === "tables" ? "tables" : "charts",
-  );
-  const setTab = (t: "charts" | "tables") => {
+  const [tab, setTabState] = useState<Tab>(() => {
+    const v = readStore("aw:stats-tab");
+    return v === "tables" || v === "charts" || v === "review" ? v : "trend";
+  });
+  const setTab = (t: Tab) => {
     setTabState(t);
     writeStore("aw:stats-tab", t);
   };
@@ -144,19 +147,25 @@ export function StatsPage({ data }: { data: UserData; name: string }) {
 
   return (
     <>
-      <PageHeader title="Statistiche" subtitle={<StatLine data={data} />}>
-        <Seg<"charts" | "tables">
+      <PageHeader title="Statistiche" subtitle="Come stai andando, e dove va il tuo tempo.">
+        <Seg<Tab>
           label="Sezione"
           value={tab}
           onChange={setTab}
           options={[
+            { id: "trend", label: "Andamento" },
             { id: "charts", label: "Grafici" },
             { id: "tables", label: "Tabelle" },
+            { id: "review", label: "Revisione" },
           ]}
         />
       </PageHeader>
       {tab === "tables" ? (
         <PivotTables data={data} />
+      ) : tab === "review" ? (
+        <ReviewPanel data={data} />
+      ) : tab === "trend" ? (
+        <PeriodPanel data={data} />
       ) : (
         <>
           <div className="stats-range">

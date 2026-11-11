@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Empty } from '../../components/Charts';
 import { IconDownload, IconEdit, IconTrash } from '../../components/Icons';
-import { StatLine } from '../../components/StatLine';
 import { ActivitySelect, confirmDialog, PageHeader, Section, Seg, SubjectSelect, toast } from '../../components/UI';
 import { trackingPeriod } from '../../lib/insights';
 import { readStore, writeStore } from '../../lib/platform';
@@ -45,9 +44,9 @@ export function SessionsPage({ data }: { data: UserData; name: string }) {
         : range === 'month'
           ? new Date(now.getFullYear(), now.getMonth(), 1).getTime()
           : range === 'period'
-            ? trackingPeriod(data.settings, now).start.getTime()
+            ? trackingPeriod(data, now).start.getTime()
             : 0;
-    const to = range === 'period' ? trackingPeriod(data.settings, now).end.getTime() : addDays(startOfDay(now), 1).getTime();
+    const to = range === 'period' ? trackingPeriod(data, now).end.getTime() : addDays(startOfDay(now), 1).getTime();
     const needle = q.trim().toLowerCase();
     return data.sessions
       .filter((s) => s.start >= from && s.start < to)
@@ -93,7 +92,7 @@ export function SessionsPage({ data }: { data: UserData; name: string }) {
 
   return (
     <>
-      <PageHeader title="Sessioni" subtitle={<StatLine data={data} />} />
+      <PageHeader title="Sessioni" subtitle="Registra a mano e ritrova quello che hai fatto." />
       <div className="sessions-layout">
         <Section title="Registra una sessione" className="sessions-new">
           <div className="card form-card">
