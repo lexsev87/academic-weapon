@@ -1,5 +1,5 @@
 // Academic Weapon for macOS: serves the built tracker from a private app:// address and opens it in its own window.
-const { app, BrowserWindow, protocol, net, shell, Menu, Tray, nativeImage, ipcMain, dialog, safeStorage } = require('electron');
+const { app, BrowserWindow, protocol, net, shell, Menu, Tray, nativeImage, ipcMain, dialog } = require('electron');
 const { execFile } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -109,65 +109,107 @@ ipcMain.handle('aw:backup', (_e, json, dir) => {
     return { ok: false, error: String(err && err.message ? err.message : err) };
   }
 });
-// Claude (weekly review). The API key is encrypted with the Mac's Keychain (safeStorage) and kept
-// outside the app's data, so it never ends up in a backup or an export. Requests go out from here.
-const keyFile = () => path.join(app.getPath('userData'), 'claude-key.bin');
-function readKey() {
+// Claude: a local MCP server (mcp.cjs) that Claude Desktop or Claude Code starts on this Mac.
+// The app shares a snapshot of its data in claude-bridge/ and imports what Claude logs from
+// claude-bridge/inbox/. Nothing goes over the network from here, and no API key is involved.
+const BRIDGE = () => path.join(app.getPath('userData'), 'claude-bridge');
+const INBOX = () => path.join(BRIDGE(), 'inbox');
+const MCP_SCRIPT = path.join(__dirname, 'mcp.cjs');
+const CLAUDE_CONFIG = process.env.AW_CLAUDE_CONFIG || path.join(app.getPath('home'), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+const mcpEntry = () => ({ command: process.execPath, args: [MCP_SCRIPT], env: { ELECTRON_RUN_AS_NODE: '1' } });
+const quote = (s) => `"${String(s).replace(/(["\\$`])/g, '\\$1')}"`;
+
+function writeAtomic(file, text) {
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, file);
+}
+ipcMain.on('aw:bridge-snapshot', (_e, json) => {
   try {
-    if (!fs.existsSync(keyFile()) || !safeStorage.isEncryptionAvailable()) return '';
-    return safeStorage.decryptString(fs.readFileSync(keyFile()));
+    fs.mkdirSync(BRIDGE(), { recursive: true });
+    writeAtomic(path.join(BRIDGE(), 'snapshot.json'), String(json));
   } catch {
-    return '';
+    /* the bridge is best effort: the app keeps working without it */
+  }
+});
+
+// Inbox: complete files only (the server writes a temp file, then renames it).
+let inboxTimer = null;
+function scanInbox(win) {
+  try {
+    fs.mkdirSync(INBOX(), { recursive: true });
+    const items = fs
+      .readdirSync(INBOX())
+      .filter((f) => f.endsWith('.json'))
+      .sort()
+      .flatMap((f) => {
+        try {
+          return [JSON.parse(fs.readFileSync(path.join(INBOX(), f), 'utf8'))];
+        } catch {
+          return [];
+        }
+      });
+    if (items.length && win && !win.isDestroyed()) win.webContents.send('aw:inbox', items);
+  } catch {
+    /* ignore */
   }
 }
-ipcMain.handle('aw:claude-key-status', () => {
-  const k = readKey();
-  return { set: !!k, hint: k ? `…${k.slice(-4)}` : '' };
-});
-ipcMain.handle('aw:claude-key-set', (_e, key) => {
-  const k = String(key).trim();
-  if (!k) return { ok: false, error: 'Chiave vuota' };
-  if (!safeStorage.isEncryptionAvailable()) return { ok: false, error: 'Il Portachiavi non è disponibile' };
+function watchInbox(win) {
+  fs.mkdirSync(INBOX(), { recursive: true });
+  const kick = () => {
+    clearTimeout(inboxTimer);
+    inboxTimer = setTimeout(() => scanInbox(win), 300);
+  };
   try {
-    fs.writeFileSync(keyFile(), safeStorage.encryptString(k), { mode: 0o600 });
+    fs.watch(INBOX(), kick);
+  } catch {
+    /* fall back to the periodic scan */
+  }
+  setInterval(() => scanInbox(win), 60000);
+}
+ipcMain.on('aw:inbox-ready', (e) => scanInbox(BrowserWindow.fromWebContents(e.sender)));
+ipcMain.on('aw:inbox-done', (_e, ids) => {
+  for (const id of Array.isArray(ids) ? ids : []) {
+    if (/^[\w-]+$/.test(String(id))) fs.rmSync(path.join(INBOX(), `${id}.json`), { force: true });
+  }
+});
+
+function readClaudeConfig() {
+  if (!fs.existsSync(CLAUDE_CONFIG)) return { ok: true, config: {} };
+  try {
+    const config = JSON.parse(fs.readFileSync(CLAUDE_CONFIG, 'utf8'));
+    return config && typeof config === 'object' && !Array.isArray(config) ? { ok: true, config } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+ipcMain.handle('aw:claude-status', () => {
+  const r = readClaudeConfig();
+  const entry = r.ok ? r.config.mcpServers?.['academic-weapon'] : null;
+  const want = mcpEntry();
+  return {
+    desktopInstalled: fs.existsSync('/Applications/Claude.app') || fs.existsSync(path.join(app.getPath('home'), 'Applications', 'Claude.app')),
+    desktop: !entry ? 'off' : entry.command === want.command && entry.args?.[0] === want.args[0] ? 'on' : 'stale',
+    codeCommand: `claude mcp add academic-weapon --scope user -e ELECTRON_RUN_AS_NODE=1 -- ${quote(want.command)} ${quote(want.args[0])}`,
+    snippet: JSON.stringify({ mcpServers: { 'academic-weapon': want } }, null, 2),
+  };
+});
+// Adds (or updates) our entry in Claude Desktop's config; everything else in it is kept, and the
+// previous file is saved next to it. Runs only when the user presses "Collega" in Settings.
+ipcMain.handle('aw:claude-connect', (_e, on) => {
+  const r = readClaudeConfig();
+  if (!r.ok) return { ok: false, error: 'Il file di configurazione di Claude non si legge: aggiungi la voce a mano.' };
+  try {
+    const config = r.config;
+    config.mcpServers = config.mcpServers && typeof config.mcpServers === 'object' ? config.mcpServers : {};
+    if (on) config.mcpServers['academic-weapon'] = mcpEntry();
+    else delete config.mcpServers['academic-weapon'];
+    fs.mkdirSync(path.dirname(CLAUDE_CONFIG), { recursive: true });
+    if (fs.existsSync(CLAUDE_CONFIG)) fs.copyFileSync(CLAUDE_CONFIG, `${CLAUDE_CONFIG}.academic-weapon.bak`);
+    writeAtomic(CLAUDE_CONFIG, JSON.stringify(config, null, 2));
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err && err.message ? err.message : err) };
-  }
-});
-ipcMain.handle('aw:claude-key-clear', () => {
-  fs.rmSync(keyFile(), { force: true });
-});
-ipcMain.handle('aw:claude-ask', async (_e, system, prompt) => {
-  const apiKey = readKey();
-  if (!apiKey) return { ok: false, code: 'no-key' };
-  const sdk = require('@anthropic-ai/sdk');
-  const Anthropic = sdk.default || sdk;
-  try {
-    const client = new Anthropic({ apiKey });
-    // If the model declines a request, the API retries it on the recommended fallback model.
-    const res = await client.beta.messages.create({
-      model: 'claude-opus-5-5',
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'medium' },
-      system: String(system),
-      messages: [{ role: 'user', content: String(prompt) }],
-    });
-    if (res.stop_reason === 'refusal') return { ok: false, code: 'refused' };
-    const text = res.content
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n')
-      .trim();
-    return text ? { ok: true, text } : { ok: false, code: 'other', message: 'Risposta vuota' };
-  } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return { ok: false, code: 'auth' };
-    if (err instanceof Anthropic.RateLimitError) return { ok: false, code: 'rate' };
-    if (err instanceof Anthropic.APIConnectionError) return { ok: false, code: 'network' };
-    if (err instanceof Anthropic.APIError) return { ok: false, code: 'other', message: `${err.status ?? ''} ${err.message}`.trim() };
-    return { ok: false, code: 'other', message: String(err && err.message ? err.message : err) };
   }
 });
 ipcMain.handle('aw:choose-folder', async (e) => {
@@ -185,12 +227,23 @@ ipcMain.on('aw:reveal', (_e, p) => {
 });
 
 app.setName('Academic Weapon');
+if (process.env.AW_USER_DATA) app.setPath('userData', process.env.AW_USER_DATA); // tests: a throwaway profile
+
 app.whenReady().then(() => {
   protocol.handle('app', (req) => net.fetch(pathToFileURL(resolve(new URL(req.url).pathname)).toString()));
   if (process.platform === 'darwin') {
     Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]));
   }
   createWindow();
+  // Tell the MCP server the app is open, and import what Claude logs while it is.
+  try {
+    fs.mkdirSync(BRIDGE(), { recursive: true });
+    fs.writeFileSync(path.join(BRIDGE(), 'app.pid'), String(process.pid));
+  } catch {
+    /* ignore */
+  }
+  watchInbox(BrowserWindow.getAllWindows()[0]);
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit());
+app.on('will-quit', () => fs.rmSync(path.join(BRIDGE(), 'app.pid'), { force: true }));

@@ -123,8 +123,10 @@ export interface Settings {
   lastExportAt: number;
   /** Until when the "export your data" reminder is snoozed. */
   exportSnoozeUntil: number;
-  /** Weekly review with Claude: off unless the user turns it on. */
-  reviewEnabled: boolean;
+  /** Rewards already shown, so each one appears once: the day of the streak/goal toast, the last milestone sheet. */
+  streakToastDay: string;
+  goalToastDay: string;
+  milestoneShown: number;
 }
 export type TimerMode = 'pomodoro' | 'stopwatch' | 'countdown';
 export type Phase = 'focus' | 'short' | 'long';
@@ -199,7 +201,9 @@ export const DEFAULT_SETTINGS: Settings = {
   breakNudgeMin: 3,
   lastExportAt: 0,
   exportSnoozeUntil: 0,
-  reviewEnabled: false,
+  streakToastDay: '',
+  goalToastDay: '',
+  milestoneShown: 0,
 };
 
 export const DEFAULT_TIMER: TimerState = {
@@ -375,6 +379,13 @@ export const setSettings = (p: Partial<Settings>) => update((d) => ({ ...d, sett
 export const setTimer = (p: Partial<TimerState>) => update((d) => ({ ...d, timer: { ...d.timer, ...p } }));
 export const addSession = (s: Omit<Session, 'id' | 'focus' | 'activityId' | 'breakSec' | 'pauses' | 'pausedSec'> & Partial<Pick<Session, 'focus' | 'activityId' | 'breakSec' | 'pauses' | 'pausedSec'>>) =>
   update((d) => ({ ...d, sessions: [...d.sessions, { focus: 0, activityId: null, breakSec: 0, pauses: 0, pausedSec: 0, ...s, id: uid() }].sort((a, b) => a.start - b.start) }));
+/** Adds sessions that already have an id (logged by Claude); ones already present are skipped. */
+export const importSessions = (list: Session[]) =>
+  update((d) => {
+    const have = new Set(d.sessions.map((x) => x.id));
+    const add = list.filter((x) => !have.has(x.id));
+    return add.length ? { ...d, sessions: [...d.sessions, ...add].sort((a, b) => a.start - b.start) } : d;
+  });
 export const saveSession = (s: Session) =>
   update((d) => ({ ...d, sessions: d.sessions.map((x) => (x.id === s.id ? s : x)).sort((a, b) => a.start - b.start) }));
 export const deleteSession = (id: string) => update((d) => ({ ...d, sessions: d.sessions.filter((x) => x.id !== id) }));

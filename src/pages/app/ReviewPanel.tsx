@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconTrash } from '../../components/Icons';
 import { confirmDialog, Section, toast } from '../../components/UI';
-import { claudeKeyStatus } from '../../lib/native';
 import { askReview, deleteReview, REVIEW_ERROR_TEXT, reviewChannel, reviewData, reviewPrompt, saveReview, type ReviewError } from '../../lib/review';
 import { navigate } from '../../lib/router';
 import { addDays, parseDayKey } from '../../lib/stats';
@@ -40,17 +39,14 @@ const weekLabel = (r: Review) => {
 /** Weekly review written by Claude: off until the user turns it on, and always shows what it sends. */
 export function ReviewPanel({ data }: { data: UserData }) {
   const channel = reviewChannel();
-  const enabled = data.settings.reviewEnabled;
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState('');
   const [error, setError] = useState('');
-  const [hasKey, setHasKey] = useState(channel !== 'mac');
   const [pasting, setPasting] = useState(false);
   const [pasted, setPasted] = useState('');
   const ctl = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (channel === 'mac') claudeKeyStatus().then((s) => setHasKey(s.set));
     return () => ctl.current?.abort();
   }, [channel]);
 
@@ -85,7 +81,7 @@ export function ReviewPanel({ data }: { data: UserData }) {
     if (await confirmDialog({ title: 'Eliminare questa revisione?', confirmLabel: 'Elimina', destructive: true })) deleteReview(r.id);
   };
 
-  const canAsk = !!channel && enabled && hasKey;
+  const canAsk = channel === 'claude.ai';
   const [latest, ...older] = data.reviews;
 
   return (
@@ -106,9 +102,9 @@ export function ReviewPanel({ data }: { data: UserData }) {
                 Ferma
               </button>
             )}
-            {channel && !canAsk && (
-              <button className="btn primary" onClick={() => navigate('/impostazioni')}>
-                {enabled ? 'Aggiungi la chiave API' : 'Attiva in Impostazioni'}
+            {channel === 'mac' && (
+              <button className="btn" onClick={() => navigate('/impostazioni')}>
+                Collegamento a Claude
               </button>
             )}
             <button className="btn" onClick={copy}>
@@ -120,7 +116,7 @@ export function ReviewPanel({ data }: { data: UserData }) {
           </div>
           <p className="secondary">
             {channel === 'mac'
-              ? 'Con “Chiedi a Claude” i dati qui sotto vengono inviati ad Anthropic con la tua chiave API. Niente parte senza che tu prema il pulsante.'
+              ? 'Con Claude collegato (Impostazioni › Claude), scrivi in una chat: “fammi la revisione della settimana su Academic Weapon”. Claude legge i dati qui sotto, ti risponde e, se vuoi, salva qui la revisione. Usa il tuo account Claude, senza costi in più.'
               : channel === 'claude.ai'
                 ? 'Con “Chiedi a Claude” i dati qui sotto vengono inviati a Claude con il tuo account, che ne conta l’uso. Niente parte senza che tu prema il pulsante.'
                 : 'Da qui l’app non può contattare Claude: copia il testo, incollalo in una chat con Claude e, se vuoi conservarla, incolla qui la risposta.'}

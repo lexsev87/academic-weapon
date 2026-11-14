@@ -11,13 +11,16 @@ interface NativeBridge {
   backup: (json: string, dir: string) => Promise<BackupResult>;
   chooseFolder: () => Promise<string | null>;
   reveal: (path: string) => void;
-  /** Claude API (weekly review): the key lives in the Mac's encrypted storage, never in the page. */
-  claudeKeyStatus?: () => Promise<{ set: boolean; hint: string }>;
-  claudeKeySet?: (key: string) => Promise<{ ok: boolean; error?: string }>;
-  claudeKeyClear?: () => Promise<void>;
-  claudeAsk?: (system: string, prompt: string) => Promise<ClaudeAnswer>;
+  /** Claude (MCP bridge): the app shares a snapshot and imports what Claude logs. */
+  bridgeSnapshot?: (json: string) => void;
+  onInbox?: (cb: (items: InboxItem[]) => void) => () => void;
+  inboxReady?: () => void;
+  inboxDone?: (ids: string[]) => void;
+  claudeStatus?: () => Promise<ClaudeStatus>;
+  claudeConnect?: (on: boolean) => Promise<{ ok: boolean; error?: string }>;
 }
-export type ClaudeAnswer = { ok: true; text: string } | { ok: false; code: 'no-key' | 'auth' | 'rate' | 'network' | 'refused' | 'other'; message?: string };
+export type InboxItem = { id: string; type: 'add_session' | 'set_next_step' | 'save_review'; payload: Record<string, unknown>; createdAt: number };
+export type ClaudeStatus = { desktopInstalled: boolean; desktop: 'on' | 'off' | 'stale'; codeCommand: string; snippet: string };
 const native = (window as unknown as { aw?: NativeBridge }).aw;
 export const isMacApp = !!native;
 
@@ -100,9 +103,11 @@ export function writeBackup(json: string, dir: string): Promise<BackupResult> {
   return native ? native.backup(json, dir) : Promise.resolve({ ok: false, error: 'Disponibile solo nell’app per Mac' });
 }
 
-/* Claude for the weekly review (Mac app): requests are made by the Electron main process. */
-export const hasNativeClaude = !!native?.claudeAsk;
-export const claudeKeyStatus = () => native?.claudeKeyStatus?.() ?? Promise.resolve({ set: false, hint: '' });
-export const claudeKeySet = (key: string) => native?.claudeKeySet?.(key) ?? Promise.resolve({ ok: false, error: 'Disponibile solo nell’app per Mac' });
-export const claudeKeyClear = () => native?.claudeKeyClear?.() ?? Promise.resolve();
-export const askClaudeNative = (system: string, prompt: string): Promise<ClaudeAnswer> => native?.claudeAsk?.(system, prompt) ?? Promise.resolve({ ok: false, code: 'other' });
+/* Claude (Mac app): a local MCP server lets Claude Desktop / Claude Code read the data and log sessions. */
+export const hasClaudeBridge = !!native?.bridgeSnapshot;
+export const bridgeSnapshot = (json: string) => native?.bridgeSnapshot?.(json);
+export const onInbox = (cb: (items: InboxItem[]) => void) => native?.onInbox?.(cb) ?? (() => {});
+export const inboxReady = () => native?.inboxReady?.();
+export const inboxDone = (ids: string[]) => native?.inboxDone?.(ids);
+export const claudeStatus = () => native?.claudeStatus?.() ?? Promise.resolve(null);
+export const claudeConnect = (on: boolean) => native?.claudeConnect?.(on) ?? Promise.resolve({ ok: false, error: 'Disponibile solo nell’app per Mac' });

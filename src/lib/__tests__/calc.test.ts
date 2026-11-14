@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { focusInsights, goalBetween, periodSummary, pivot, rangeInsights, trackingPeriod, trendSeries } from '../insights';
 import { dayPlan } from '../plan';
+import { streak } from '../streak';
 import { addDays, dayKey, goalFor, isDayOff, startOfDay } from '../stats';
 import { DEFAULT_SETTINGS, DEFAULT_TIMER, newSubject, type Session, type Settings, type UserData } from '../store';
 
@@ -191,5 +192,50 @@ describe('concentration insights', () => {
     const to = addDays(startOfDay(NOW), 1).getTime();
     const r = focusInsights(data({ sessions: [session(d(2026, 11, 2), 9, { focus: 5 }), session(d(2026, 11, 2), 21, { focus: 1 })] }), to - 90 * 86400000, to);
     expect(r.findings).toEqual([]);
+  });
+});
+
+describe('streak', () => {
+  // NOW is Wednesday 11 November 2026; weekday goals Mon–Fri, weekends free.
+  const s = settings();
+  const study = (y: number, m: number, day: number, min = 50) => session(d(y, m, day), 9, { dur: min * 60 });
+
+  it('counts consecutive days up to today', () => {
+    const r = streak([study(2026, 11, 9), study(2026, 11, 10), study(2026, 11, 11)], s, NOW);
+    expect(r.current).toBe(3);
+    expect(r.today).toBe(true);
+    expect(r.next).toBe(7);
+    expect(r.reached).toBe(3);
+  });
+  it('keeps the run while today is still open, and says how much is missing', () => {
+    const r = streak([study(2026, 11, 9), study(2026, 11, 10), study(2026, 11, 11, 10)], s, NOW);
+    expect(r.current).toBe(2);
+    expect(r.today).toBe(false);
+    expect(r.todayLeft).toBe(15 * 60);
+  });
+  it('a short day does not count, and a missed working day breaks the run', () => {
+    const r = streak([study(2026, 11, 6), study(2026, 11, 9, 20), study(2026, 11, 10)], s, NOW);
+    expect(r.current).toBe(1); // Monday had only 20 minutes
+    expect(r.best).toBe(1);
+  });
+  it('a weekend without study does not break it; studying on it adds a day', () => {
+    // Fri 6, (Sat 7 nothing), Sun 8 studied, Mon 9, Tue 10
+    const r = streak([study(2026, 11, 6), study(2026, 11, 8), study(2026, 11, 9), study(2026, 11, 10)], s, NOW);
+    expect(r.current).toBe(4);
+  });
+  it('free days do not break it', () => {
+    const off = settings({ daysOff: [{ id: 'x', from: '2026-11-09', to: '2026-11-10', label: '' }] });
+    const r = streak([study(2026, 11, 5), study(2026, 11, 6), study(2026, 11, 11)], off, NOW);
+    expect(r.current).toBe(3);
+    expect(r.restToday).toBe(false);
+  });
+  it('remembers the longest run', () => {
+    const old = [5, 6, 7, 8, 9, 12, 13, 14, 15, 16].map((day) => study(2026, 10, day)); // two weeks in October
+    const r = streak([...old, study(2026, 11, 10), study(2026, 11, 11)], s, NOW);
+    expect(r.best).toBe(10);
+    expect(r.current).toBe(2);
+  });
+  it('is zero with no study', () => {
+    expect(streak([], s, NOW)).toMatchObject({ current: 0, best: 0, today: false, next: 3 });
   });
 });

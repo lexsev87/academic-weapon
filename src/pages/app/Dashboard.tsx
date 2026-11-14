@@ -1,8 +1,8 @@
 import { Empty, MiniRing, Ring } from '../../components/Charts';
-import { IconChevron, IconPlay } from '../../components/Icons';
+import { IconChevron, IconFlame, IconPlay } from '../../components/Icons';
 import { PageHeader, Section } from '../../components/UI';
 import { periodSummary } from '../../lib/insights';
-import { dayPlan } from '../../lib/plan';
+import { streak as getStreak } from '../../lib/streak';
 import { navigate } from '../../lib/router';
 import { start as startTimer } from '../../lib/timer';
 import { Link } from '../../lib/router';
@@ -48,13 +48,20 @@ export function Dashboard({ data, name }: { data: UserData; name: string }) {
   const weekGoal = weekDays.reduce((a, d) => a + goalFor(settings, d), 0);
   const hour = now.getHours();
   const hello = hour < 5 ? 'Ancora sveglio' : hour < 13 ? 'Buongiorno' : hour < 18 ? 'Buon pomeriggio' : 'Buonasera';
-  const plan = dayPlan(data, now);
   const recent4 = periodSummary(data, now);
-  const study = (subjectId: string) => {
+  const st = getStreak(sessions, settings, now);
+  const busy = data.timer.running || !!data.timer.pending;
+  const study = (subjectId: string | null) => {
     setTimer({ subjectId, mode: data.timer.mode, phase: 'focus' });
     navigate('/focus');
     startTimer();
   };
+  // Open exams to pick from: nearest appello first, then the rest by name. Nothing is assigned.
+  const open = subjects
+    .filter((s) => s.status !== 'passed')
+    .sort((a, b) => (a.examDate || '9999').localeCompare(b.examDate || '9999') || a.name.localeCompare(b.name));
+  const todayBy = new Map<string, number>();
+  for (const x of sessions) if (x.subjectId && dayKey(x.start) === dayKey(now)) todayBy.set(x.subjectId, (todayBy.get(x.subjectId) ?? 0) + x.dur);
   const hours = totalsBySubject(sessions);
   const exams = subjects
     .filter((s) => s.status !== 'passed' && s.examDate && (daysUntil(s.examDate) ?? -1) >= 0)
@@ -94,6 +101,22 @@ export function Dashboard({ data, name }: { data: UserData; name: string }) {
       <PageHeader eyebrow={fmtDate(now)} title={`${hello}, ${name}`} />
 
       <section className={`card today-card ${done ? 'is-done' : ''}`} aria-label="Obiettivo di oggi">
+        <div className="streak-badge" data-on={st.today || undefined} title={`Record: ${st.best} ${st.best === 1 ? 'giorno' : 'giorni'}`}>
+          <IconFlame size={22} filled={st.today} />
+          <span className="streak-num tnum">{st.current}</span>
+          <span className="streak-text">
+            <b>{st.current === 1 ? 'giorno di fila' : 'giorni di fila'}</b>
+            <small>
+              {st.today
+                ? `Serie al sicuro · prossimo traguardo ${st.next}`
+                : st.restToday
+                  ? 'Oggi è libero: la serie è al sicuro'
+                  : st.current
+                    ? `Ancora ${fmtDur(st.todayLeft)} per allungarla`
+                    : `Studia ${fmtDur(st.todayLeft)} per iniziare una serie`}
+            </small>
+          </span>
+        </div>
         <div className="today-main">
           <Ring pct={ringPct} size={132} stroke={14} color={done ? 'var(--green)' : 'var(--accent)'}>
             <span className="today-ring-value tnum">{blocks && goal ? fmtBlocks(bDone) : goal ? `${Math.round(ringPct * 100)}%` : fmtDur(today, true)}</span>
@@ -104,13 +127,13 @@ export function Dashboard({ data, name }: { data: UserData; name: string }) {
             <h2 className="today-headline">{headline}</h2>
             <p className="today-detail">{detail}</p>
             <div className="today-actions">
-              {data.timer.running || data.timer.pending || !plan.next ? (
+              {busy ? (
                 <Link href="/focus" className="btn primary">
-                  <IconPlay size={12} /> {data.timer.running ? 'Torna al timer' : 'Avvia un pomodoro'}
+                  <IconPlay size={12} /> Torna al timer
                 </Link>
               ) : (
-                <button className="btn primary" onClick={() => study(plan.next!.subject.id)}>
-                  <IconPlay size={12} /> Studia {plan.next.subject.name}
+                <button className="btn primary" onClick={() => study(data.timer.subjectId)}>
+                  <IconPlay size={12} /> Avvia un pomodoro
                 </button>
               )}
               {next && (
@@ -148,67 +171,47 @@ export function Dashboard({ data, name }: { data: UserData; name: string }) {
       </section>
 
       <Section
-        className="plan-section"
-        title="Piano di oggi"
-        note={plan.blocks ? `${plan.blocks} ${plan.blocks === 1 ? 'blocco' : 'blocchi'} divisi tra gli esami in base agli appelli` : undefined}
+        className="pick-section"
+        title="Cosa studi?"
+        note="scegli tu: parte il timer su quell’esame"
         accessory={
           <Link href="/statistiche" className="link">
             {recent4.recentGoal ? `Ultime 4 settimane: ${Math.round(recent4.recentProgress * 100)}% dell’obiettivo` : 'Statistiche'} <IconChevron size={10} />
           </Link>
         }
       >
-        <div className="card list plan">
-          {plan.rows.length === 0 ? (
+        <div className="card list">
+          {open.length === 0 ? (
             <p className="list-empty">
-              {goal === 0 ? (
-                'Oggi è giorno libero: nessun piano.'
-              ) : (
-                <>
-                  Aggiungi gli esami in{' '}
-                  <Link href="/esami" className="link">
-                    Esami
-                  </Link>{' '}
-                  (con data d’appello e ore previste) e qui trovi come dividere la giornata.
-                </>
-              )}
+              Aggiungi gli esami in{' '}
+              <Link href="/esami" className="link">
+                Esami
+              </Link>{' '}
+              per avviarli da qui con un clic.
             </p>
           ) : (
-            plan.rows.map((r) => {
-              const d = r.daysLeft;
+            open.map((s) => {
+              const d = daysUntil(s.examDate);
+              const t = todayBy.get(s.id) ?? 0;
               return (
-                <div className="list-row plan-row" key={r.subject.id} data-done={r.left === 0 || undefined}>
-                  <span className="plan-blocks" aria-label={`${Math.min(r.blocks, Math.floor(r.done + 0.05))} di ${r.blocks} blocchi fatti`}>
-                    {Array.from({ length: Math.max(r.blocks, 1) }, (_, i) => (
-                      <i key={i} style={{ background: i < Math.floor(r.done + 0.05) ? r.subject.color : undefined, borderColor: r.subject.color }} />
-                    ))}
-                  </span>
+                <div className="list-row pick-row" key={s.id}>
+                  <span className="dot lg" style={{ background: s.color }} />
                   <div className="list-text">
-                    <span className="list-title">{r.subject.name}</span>
+                    <span className="list-title">{s.name}</span>
                     <span className="list-sub">
-                      {r.blocks ? `${r.blocks} ${r.blocks === 1 ? 'blocco' : 'blocchi'}` : 'extra'}
-                      {d !== null ? ` · appello ${d === 0 ? 'oggi' : d === 1 ? 'domani' : `tra ${d} giorni`}` : ''}
-                      {r.subject.nextStep ? ` · riparti da: ${r.subject.nextStep}` : ''}
+                      {[t ? `oggi ${fmtDur(t)}` : '', d !== null && d >= 0 ? `appello ${d === 0 ? 'oggi' : d === 1 ? 'domani' : `tra ${d} giorni`}` : '', s.nextStep ? `riparti da: ${s.nextStep}` : '']
+                        .filter(Boolean)
+                        .join(' · ') || 'Nessuna sessione oggi'}
                     </span>
                   </div>
-                  {r.left === 0 ? (
-                    <span className="badge" data-tone="good">
-                      Fatto
-                    </span>
-                  ) : (
-                    <button className="btn" onClick={() => study(r.subject.id)} disabled={data.timer.running || !!data.timer.pending}>
-                      <IconPlay size={11} /> Studia
-                    </button>
-                  )}
+                  <button className="btn" onClick={() => study(s.id)} disabled={busy}>
+                    <IconPlay size={11} /> Studia
+                  </button>
                 </div>
               );
             })
           )}
         </div>
-        {plan.overload && (
-          <p className="plan-warning">
-            Per arrivare agli appelli con le ore previste servono {fmtDur(plan.demand)} per giorno di studio, ma i tuoi obiettivi ne prevedono {fmtDur(plan.capacity)}. Alza l’obiettivo giornaliero o abbassa le ore previste di un esame.
-          </p>
-        )}
       </Section>
 
       <div className="grid cols-2">

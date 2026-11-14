@@ -9,8 +9,14 @@ contextBridge.exposeInMainWorld('aw', {
   backup: (json, dir) => ipcRenderer.invoke('aw:backup', String(json), String(dir || '')),
   chooseFolder: () => ipcRenderer.invoke('aw:choose-folder'),
   reveal: (p) => ipcRenderer.send('aw:reveal', String(p)),
-  claudeKeyStatus: () => ipcRenderer.invoke('aw:claude-key-status'),
-  claudeKeySet: (key) => ipcRenderer.invoke('aw:claude-key-set', String(key)),
-  claudeKeyClear: () => ipcRenderer.invoke('aw:claude-key-clear'),
-  claudeAsk: (system, prompt) => ipcRenderer.invoke('aw:claude-ask', String(system), String(prompt)),
+  bridgeSnapshot: (json) => ipcRenderer.send('aw:bridge-snapshot', String(json)),
+  onInbox: (cb) => {
+    const h = (_e, items) => cb(items);
+    ipcRenderer.on('aw:inbox', h);
+    return () => ipcRenderer.removeListener('aw:inbox', h);
+  },
+  inboxReady: () => ipcRenderer.send('aw:inbox-ready'),
+  inboxDone: (ids) => ipcRenderer.send('aw:inbox-done', ids),
+  claudeStatus: () => ipcRenderer.invoke('aw:claude-status'),
+  claudeConnect: (on) => ipcRenderer.invoke('aw:claude-connect', !!on),
 });

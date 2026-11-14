@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { IconCalendar, IconCap, IconChart, IconChat, IconHome, IconList, IconPause, IconPlay, IconPlus, IconSettings, IconTimer } from '../../components/Icons';
 import { ConfirmHost, Toaster } from '../../components/UI';
 import { Notices } from '../../components/Notices';
+import { Celebration } from '../../components/Celebration';
+import { IconFlame } from '../../components/Icons';
+import { streak } from '../../lib/streak';
 import { useFeedback } from '../../lib/feedback';
 import { Link, navigate } from '../../lib/router';
 import { NO_SUBJECT_COLOR, useData, type UserData } from '../../lib/store';
@@ -11,6 +14,7 @@ import { elapsed, pause, PHASE_LABEL, start, targetMs, useFocusView, useNow, use
 import { SessionModal } from './Sessions';
 import { SessionsPage } from './SessionsPage';
 import { useAutoBackup } from '../../lib/backup';
+import { useClaudeBridge } from '../../lib/claudeBridge';
 import { isWeb } from '../../lib/platform';
 import { Dashboard } from './Dashboard';
 import { TimerPage } from './TimerPage';
@@ -41,6 +45,7 @@ export function Shell({ path }: { path: string }) {
   const item = NAV.find((n) => n.href === (path === '/diario' ? '/calendario' : path)) ?? NAV[0];
   const focusView = useFocusView();
   useAutoBackup();
+  useClaudeBridge(data);
   const feedback = useFeedback();
   const running = data.timer.running;
   const now = useNow(running);
@@ -111,6 +116,13 @@ export function Shell({ path }: { path: string }) {
   }
   useEffect(() => setTray(tray), [tray]);
 
+  const st = streak(data.sessions, data.settings, new Date(now));
+  const flame = st.current ? (
+    <span className="nav-badge tnum" data-on={st.today || undefined} title={`${st.current} giorni di fila`}>
+      <IconFlame size={11} filled={st.today} />
+      {st.current}
+    </span>
+  ) : undefined;
   const Page = item.page;
   let group = '';
   return (
@@ -129,7 +141,7 @@ export function Shell({ path }: { path: string }) {
             return (
               <div key={n.href}>
                 {head && <div className="sidebar-group">{head}</div>}
-                <NavLink n={n} on={item === n} />
+                <NavLink n={n} on={item === n} badge={n.href === '/' ? flame : undefined} />
               </div>
             );
           })}
@@ -165,6 +177,7 @@ export function Shell({ path }: { path: string }) {
       </main>
       {(focusView !== 'off' || data.timer.pending) && <FocusOverlay data={data} closing={focusView === 'closing'} />}
       {!data.settings.setupDone && <Setup data={data} />}
+      {data.settings.setupDone && !data.timer.pending && focusView === 'off' && <Celebration data={data} />}
       {newSession && <SessionModal data={data} session={null} onClose={() => setNewSession(false)} />}
       <ConfirmHost />
       <Toaster />
@@ -172,7 +185,7 @@ export function Shell({ path }: { path: string }) {
   );
 }
 
-function NavLink({ n, on }: { n: (typeof NAV)[number]; on: boolean }) {
+function NavLink({ n, on, badge }: { n: (typeof NAV)[number]; on: boolean; badge?: JSX.Element }) {
   return (
     <Link href={n.href} className="nav-item" aria-current={on ? 'page' : undefined}>
       <span className="nav-icon" style={{ background: n.color }}>
@@ -180,6 +193,7 @@ function NavLink({ n, on }: { n: (typeof NAV)[number]; on: boolean }) {
       </span>
       <span className="nav-label">{n.label}</span>
       {n.short && <span className="nav-short">{n.short}</span>}
+      {badge}
     </Link>
   );
 }

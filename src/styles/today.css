@@ -139,3 +139,145 @@
   font-size: var(--t-caption);
   color: var(--label-3);
 }
+
+/* ---------- streak (light gamification): a flame, the days in a row, the next milestone ---------- */
+.today-card {
+  position: relative;
+}
+.streak-badge {
+  position: absolute;
+  top: var(--s4);
+  right: var(--s5);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 6px var(--s3) 6px var(--s2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--label) 6%, transparent);
+  color: var(--label-3);
+}
+.streak-badge[data-on] {
+  background: color-mix(in srgb, var(--orange) 16%, transparent);
+  color: var(--orange);
+}
+.streak-badge[data-on] svg {
+  animation: flame-in 420ms var(--ease-out) both;
+  transform-origin: 50% 90%;
+}
+@keyframes flame-in {
+  from {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+.streak-num {
+  font-size: var(--t-title);
+  font-weight: 700;
+  line-height: 1;
+}
+.streak-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.streak-text b {
+  font-size: var(--t-callout);
+  font-weight: 600;
+  color: var(--label);
+}
+.streak-text small {
+  font-size: var(--t-caption);
+  color: var(--label-3);
+}
+@media (max-width: 1020px) {
+  .streak-badge {
+    position: static;
+    align-self: flex-start;
+    margin: var(--s4) var(--s4) 0;
+  }
+  .today-card {
+    display: flex;
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .streak-badge[data-on] svg {
+    animation: none;
+  }
+}
+
+/* ---------- milestone sheet ---------- */
+.celebrate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s4) var(--s2) var(--s2);
+  text-align: center;
+}
+.celebrate-flame {
+  color: var(--orange);
+  animation: celebrate-pop 520ms var(--ease-out) both;
+  transform-origin: 50% 85%;
+}
+@keyframes celebrate-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) translateY(12px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+.celebrate-num {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.celebrate h2 {
+  font-size: var(--t-title);
+  font-weight: 700;
+}
+.celebrate-line {
+  max-width: 30ch;
+  margin-top: var(--s2);
+  color: var(--label-2);
+}
+.celebrate-next {
+  margin: var(--s2) 0 var(--s4);
+  font-size: var(--t-callout);
+  color: var(--label-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebrate-flame {
+    animation: none;
+  }
+}
+
+/* streak count next to "Oggi" in the sidebar */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  font-size: var(--t-caption);
+  font-weight: 700;
+  color: var(--label-3);
+}
+.nav-badge[data-on] {
+  color: var(--orange);
+}
+@media (max-width: 720px) {
+  .nav-badge {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .pick-section .section-note {
+    display: none;
+  }
+}

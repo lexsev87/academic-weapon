@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { IconDownload, IconUpload } from '../../components/Icons';
 import { confirmDialog, PageHeader, Seg, Stepper, toast } from '../../components/UI';
 import { GoalFields, ProgramFields, Row, SoundFields, Toggle } from '../../components/Prefs';
-import { chooseFolder, claudeKeyClear, claudeKeySet, claudeKeyStatus, isMacApp, reveal } from '../../lib/native';
+import { chooseFolder, claudeConnect, claudeStatus, isMacApp, reveal, type ClaudeStatus } from '../../lib/native';
 import { reviewChannel } from '../../lib/review';
 import { runBackup } from '../../lib/backup';
 import { useFeedback } from '../../lib/feedback';
@@ -191,22 +191,21 @@ export function SettingsPage({ data }: { data: UserData; name: string }) {
           title="Claude"
           foot={
             reviewChannel() === 'mac'
-              ? 'La revisione settimanale invia ad Anthropic sessioni, note ed esami dell’ultima settimana, solo quando premi “Chiedi a Claude” in Statistiche › Revisione. Serve una chiave API (console.anthropic.com), a consumo: pochi centesimi a revisione. La chiave resta nel Portachiavi del Mac, fuori da backup ed esportazioni.'
+              ? 'Claude legge i tuoi dati e registra sessioni solo quando glielo chiedi in una chat. Funziona con il tuo account Claude: niente chiave API e niente costi in più. Tutto passa da questo Mac, non da un server.'
               : reviewChannel() === 'claude.ai'
-                ? 'La revisione settimanale invia a Claude sessioni, note ed esami dell’ultima settimana, solo quando premi “Chiedi a Claude” in Statistiche › Revisione, usando il tuo account Claude.'
-                : 'Su questo sito l’app non contatta Claude. In Statistiche › Revisione puoi copiare il riepilogo della settimana e incollarlo tu in una chat.'
+                ? 'Qui Claude può scrivere la revisione settimanale (Statistiche › Revisione) con il tuo account. Per registrare sessioni dalle chat serve l’app per Mac.'
+                : 'Il collegamento con Claude è nell’app per Mac. Qui puoi copiare il riepilogo della settimana da Statistiche › Revisione e incollarlo in una chat.'
           }
         >
-          {reviewChannel() ? (
-            <Toggle label="Revisione settimanale con Claude" hint="Spenta: nessun dato lascia questo dispositivo" checked={s.reviewEnabled} onChange={(v) => setSettings({ reviewEnabled: v })} />
+          {reviewChannel() === 'mac' ? (
+            <ClaudeConnect />
           ) : (
-            <Row label="Revisione settimanale" hint="Solo con copia e incolla">
+            <Row label="Revisione settimanale" hint={reviewChannel() === 'claude.ai' ? 'Con il tuo account Claude' : 'Con copia e incolla'}>
               <button className="btn" onClick={() => navigate('/statistiche')}>
                 Apri
               </button>
             </Row>
           )}
-          {reviewChannel() === 'mac' && s.reviewEnabled && <ClaudeKeyRow />}
         </Group>
 
         {isMacApp && (
@@ -312,40 +311,66 @@ const periodText = (data: UserData) => {
   return `${f(start)} – ${f(new Date(end.getTime() - 1))}`;
 };
 
-function ClaudeKeyRow() {
-  const [status, setStatus] = useState<{ set: boolean; hint: string } | null>(null);
-  const [key, setKey] = useState('');
+function ClaudeConnect() {
+  const [st, setSt] = useState<ClaudeStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = () => claudeStatus().then(setSt);
   useEffect(() => {
-    claudeKeyStatus().then(setStatus);
+    refresh();
   }, []);
-  const save = async () => {
-    const r = await claudeKeySet(key);
-    if (!r.ok) return toast(`Chiave non salvata: ${r.error ?? ''}`);
-    setKey('');
-    setStatus(await claudeKeyStatus());
-    toast('Chiave salvata nel Portachiavi');
+  const copy = async (text: string, done: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(done);
+    } catch {
+      toast('Non riesco a copiare');
+    }
   };
-  if (status?.set)
-    return (
-      <Row label="Chiave API" hint={`Salvata nel Portachiavi (${status.hint})`}>
-        <button
-          className="btn destructive"
-          onClick={async () => {
-            await claudeKeyClear();
-            setStatus(await claudeKeyStatus());
-          }}
-        >
-          Rimuovi
+  const connect = async (on: boolean) => {
+    if (!on && !(await confirmDialog({ title: 'Scollegare Academic Weapon da Claude?', message: 'Claude non potrà più leggere i dati né registrare sessioni.', confirmLabel: 'Scollega' }))) return;
+    setBusy(true);
+    const r = await claudeConnect(on);
+    setBusy(false);
+    if (!r.ok) return toast(r.error ?? 'Non riuscito');
+    await refresh();
+    toast(on ? 'Collegato: chiudi e riapri Claude per vederlo' : 'Scollegato');
+  };
+  if (!st) return null;
+  return (
+    <>
+      <Row
+        label="Claude Desktop"
+        hint={
+          st.desktop === 'on'
+            ? 'Collegato. In una chat chiedi, per esempio: “registra 50 minuti di esercizi di Algebra”'
+            : st.desktop === 'stale'
+              ? 'L’app è stata spostata: ricollegala'
+              : st.desktopInstalled
+                ? 'Aggiunge Academic Weapon agli strumenti di Claude'
+                : 'Claude Desktop non è installato su questo Mac'
+        }
+      >
+        {st.desktop === 'on' ? (
+          <button className="btn" disabled={busy} onClick={() => connect(false)}>
+            Scollega
+          </button>
+        ) : (
+          <button className="btn primary" disabled={busy} onClick={() => connect(true)}>
+            {st.desktop === 'stale' ? 'Ricollega' : 'Collega'}
+          </button>
+        )}
+      </Row>
+      <Row label="Claude Code" hint="Copia il comando e incollalo nel Terminale">
+        <button className="btn" onClick={() => copy(st.codeCommand, 'Comando copiato')}>
+          Copia comando
         </button>
       </Row>
-    );
-  return (
-    <Row label="Chiave API" hint="Incollala qui: viene cifrata e non resta nella pagina">
-      <input className="in inline-field" type="password" autoComplete="off" value={key} placeholder="sk-ant-…" onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && key.trim() && save()} />
-      <button className="btn" disabled={!key.trim()} onClick={save}>
-        Salva
-      </button>
-    </Row>
+      <Row label="Configurazione a mano" hint="Per altri client compatibili con MCP">
+        <button className="btn" onClick={() => copy(st.snippet, 'Configurazione copiata')}>
+          Copia JSON
+        </button>
+      </Row>
+    </>
   );
 }
 

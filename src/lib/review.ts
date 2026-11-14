@@ -1,5 +1,5 @@
 import { focusInsights, periodSummary } from './insights';
-import { askClaudeNative, hasNativeClaude } from './native';
+import { hasClaudeBridge } from './native';
 import { claudeUse, inClaudeViewer } from './platform';
 import { dayPlan } from './plan';
 import { addDays, dayKey, fmtDur, fmtTime, goalFor, isDayOff, parseDayKey, startOfDay } from './stats';
@@ -99,16 +99,14 @@ export function reviewData(data: UserData, now = new Date()): string {
 /** Instructions and data in one text: what "Copia per Claude" puts on the clipboard and what the web beta sends. */
 export const reviewPrompt = (data: UserData, now = new Date()) => `${REVIEW_INSTRUCTIONS}\n\n--- DATI ---\n${reviewData(data, now)}`;
 
+/** 'mac': Claude reaches the app through the local MCP server (the user asks in a Claude chat);
+    'claude.ai': the page asks Claude on the viewer's account; null: copy and paste only. */
 export type ReviewChannel = 'mac' | 'claude.ai' | null;
-/** How this copy of the app can reach Claude by itself (the copy button works everywhere). */
-export const reviewChannel = (): ReviewChannel => (hasNativeClaude ? 'mac' : inClaudeViewer() ? 'claude.ai' : null);
+export const reviewChannel = (): ReviewChannel => (hasClaudeBridge ? 'mac' : inClaudeViewer() ? 'claude.ai' : null);
 
-export type ReviewError = { code: 'no-key' | 'auth' | 'rate' | 'network' | 'refused' | 'declined' | 'unavailable' | 'cancelled' | 'other'; message?: string };
+export type ReviewError = { code: 'rate' | 'refused' | 'declined' | 'unavailable' | 'cancelled' | 'other'; message?: string };
 export const REVIEW_ERROR_TEXT: Record<ReviewError['code'], string> = {
-  'no-key': 'Manca la chiave API: aggiungila in Impostazioni › Claude.',
-  auth: 'La chiave API non è valida. Controllala in Impostazioni › Claude.',
   rate: 'Hai raggiunto un limite d’uso di Claude. Riprova più tardi.',
-  network: 'Non riesco a raggiungere Claude: controlla la connessione.',
   refused: 'Claude non ha risposto a questa richiesta.',
   declined: 'Non hai dato il permesso di usare Claude da questa pagina.',
   unavailable: 'Qui Claude non è disponibile: usa “Copia per Claude”.',
@@ -121,11 +119,6 @@ type Sample = (input: string, opts?: { onText?: (u: { text: string }) => void; s
 /** Asks Claude for the review. Resolves with the text, or rejects with a ReviewError. */
 export async function askReview(data: UserData, opts: { onText?: (text: string) => void; signal?: AbortSignal } = {}): Promise<string> {
   const channel = reviewChannel();
-  if (channel === 'mac') {
-    const r = await askClaudeNative(REVIEW_INSTRUCTIONS, reviewData(data));
-    if (r.ok) return r.text;
-    throw { code: r.code, message: r.message } satisfies ReviewError;
-  }
   if (channel === 'claude.ai') {
     const sample = await claudeUse<Sample>('sample');
     if (!sample) throw { code: 'unavailable' } satisfies ReviewError;
