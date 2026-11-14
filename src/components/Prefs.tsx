@@ -8,7 +8,7 @@ import { playSound, SOUNDS } from '../lib/native';
 /* Preference blocks shared by the first-run setup and the Settings page. */
 type Props = { s: Settings; set: (p: Partial<Settings>) => void };
 
-export const PROGRAM_PRESETS: { label: string; p: Partial<Settings> }[] = [
+const PROGRAM_PRESETS: { label: string; p: Partial<Settings> }[] = [
   { label: 'Laurea triennale', p: { creditLabel: 'CFU', degreeCfu: 180, gradeScale: '30', periodLabel: 'Semestre' } },
   { label: 'Laurea magistrale', p: { creditLabel: 'CFU', degreeCfu: 120, gradeScale: '30', periodLabel: 'Semestre' } },
   { label: 'Ciclo unico', p: { creditLabel: 'CFU', degreeCfu: 300, gradeScale: '30', periodLabel: 'Semestre' } },

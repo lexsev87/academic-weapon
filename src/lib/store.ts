@@ -310,7 +310,7 @@ const K_BROKEN = 'aw:data:broken'; // the text that could not be read
 
 export type StorageProblem = null | { kind: 'restored'; from: string } | { kind: 'lost' } | { kind: 'write' };
 let problem: StorageProblem = null;
-export const getStorageProblem = () => problem;
+const getStorageProblem = () => problem;
 export function clearStorageProblem() {
   problem = null;
   emit();

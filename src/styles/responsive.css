@@ -51,7 +51,6 @@
   .sidebar-titlebar,
   .brand,
   .sidebar-group,
-  .side-timer,
   .feedback-item {
     display: none;
   }
@@ -233,7 +232,6 @@
   .btn-circle:active,
   .play-button:active,
   .list-add:active,
-  .side-timer:active,
   .rating button:active,
   .swatches button:active,
   .focus-close:active,

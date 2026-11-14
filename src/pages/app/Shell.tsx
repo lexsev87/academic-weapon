@@ -26,7 +26,7 @@ import { SettingsPage } from './SettingsPage';
 import { Setup } from './Setup';
 import logoUrl from '../../assets/logo.png';
 
-export const APP_NAME = 'Academic Weapon';
+const APP_NAME = 'Academic Weapon';
 
 type PageProps = { data: UserData; name: string };
 const NAV: { href: string; label: string; short?: string; icon: typeof IconHome; page: (p: PageProps) => JSX.Element; group: string; color: string }[] = [

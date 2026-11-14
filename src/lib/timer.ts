@@ -144,7 +144,7 @@ export function discardLog() {
 }
 
 /** Pomodoro: start the short or long break after a completed focus block. */
-export function startBreak() {
+function startBreak() {
   const { timer: t, settings: s } = getData();
   const cycle = t.cycle + 1;
   setTimer({ ...STOPPED, mode: 'pomodoro', phase: cycle % s.longEvery === 0 ? 'long' : 'short', cycle, running: true, startedAt: Date.now(), sessionStart: Date.now() });

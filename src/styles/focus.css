@@ -315,3 +315,16 @@
 .log-card .hint-line {
   margin-top: var(--s3);
 }
+
+/* where to pick up next time, and a break that ran over */
+.timer-next {
+  max-width: 420px;
+  margin: 0 auto;
+  font-size: var(--t-callout);
+  color: var(--label-2);
+  text-align: center;
+}
+.timer-next[data-tone='warn'] {
+  color: var(--orange);
+  font-weight: 600;
+}

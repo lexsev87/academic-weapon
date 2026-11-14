@@ -6,7 +6,7 @@ import type { Session, Settings } from './store';
    on one still adds a day. Today only breaks nothing: until it counts, the streak is "at risk". */
 
 export const STREAK_MIN_MIN = 25;
-export const STREAK_MIN_SEC = STREAK_MIN_MIN * 60;
+const STREAK_MIN_SEC = STREAK_MIN_MIN * 60;
 export const MILESTONES = [3, 7, 14, 30, 50, 100, 150, 200, 365, 500, 1000];
 
 export interface Streak {

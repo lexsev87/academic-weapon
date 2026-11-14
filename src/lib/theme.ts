@@ -22,12 +22,12 @@ const mq = window.matchMedia('(prefers-color-scheme: dark)');
 const root = document.documentElement;
 const emit = () => listeners.forEach((l) => l());
 
-export function getThemePref(): ThemePref {
+function getThemePref(): ThemePref {
   const v = readStore(K_THEME);
   return v === 'light' || v === 'dark' ? v : 'system';
 }
 
-export function getAccent(): Accent {
+function getAccent(): Accent {
   const v = readStore(K_ACCENT) as Accent | null;
   return v && ACCENTS.some((a) => a.id === v) ? v : 'blue';
 }

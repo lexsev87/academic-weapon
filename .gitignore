@@ -9,3 +9,7 @@ Academic Weapon.app/
 .DS_Store
 dist-web/
 desktop/icon.iconset/
+
+# Copie di conflitto di iCloud ("file 2.ts", "Academic Weapon 2.app")
+* [0-9].*
+* [0-9]
